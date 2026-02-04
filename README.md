@@ -9,13 +9,11 @@ A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 ## Installation
 
 ```
-cd /path/to/UniST_python
+cd /path/to/UniST
 pip install -e .
 ```
 
 ### Build CUDA extensions (only for upsampling)
-
-**Important:** CUDA extension compilation is **only required** if you plan to use the **upsampling** functionality. 
 
 ```
 # For A100, RTX 3090, etc.
@@ -51,9 +49,7 @@ python setup.py install
 cd ../../../
 ```
 
-## Usage Examples
-
-### Upsampling
+## Upsampling
 
 Test upsampling on point cloud files:
 
@@ -77,7 +73,7 @@ python -m upsampling.test_upsampling \
 - `--flexible`: Enable flexible upsampling rate (recommended)
 - `--no_gt`: Skip evaluation (use when you don't have ground truth)
 
-### Interpolation
+## Interpolation
 
 Run slice interpolation using InterpolAI:
 
@@ -93,20 +89,7 @@ python -m interpolation.main \
 - `no_skip`: Interpolate without skipping slices (requires `--skip` argument)
 - `skip`: Interpolate with specified skip values (requires `--skip` argument)
 
-**Example with skip values:**
-```bash
-python -m interpolation.main \
-    --mode skip \
-    --tile_size 1024 1024 \
-    --pth /path/to/image/folder \
-    --skip 1 2 3
-```
-
-### Gene imputation
-
-#### Training Pipeline
-
-The training process typically involves two steps:
+## Gene imputation
 
 **Step 1: Train Embedder (Graph Autoencoder)**
 
@@ -128,7 +111,7 @@ python -m external.SUICA_pro.train \
     --conf external/SUICA_pro/configs/ST/inr_embd.yaml
 ```
 
-#### Prediction/Imputation
+**Step 2:  Prediction/Imputation **
 
 After training, use the trained model to predict/impute gene expression at custom coordinates:
 
@@ -137,10 +120,3 @@ python -m external.SUICA_pro.predict \
     --mode inr \
     --conf external/SUICA_pro/configs/ST/inr_pred.yaml
 ```
-
-#### Configuration Files
-
-**Available config files:**
-- `embedder_gae.yaml` / `embedder_gae_3d_sparse.yaml` - Embedder training configs
-- `inr_embd.yaml` / `inr_embd_3d_sparse.yaml` - INR training configs
-- `inr_pred.yaml` / `inr_pred_3d_sparse.yaml` - Prediction configs

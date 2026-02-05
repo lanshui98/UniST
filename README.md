@@ -111,7 +111,7 @@ python -m external.SUICA_pro.train \
     --conf external/SUICA_pro/configs/ST/inr_embd.yaml
 ```
 
-**Step 2:  Prediction/Imputation **
+**Step 3:  Prediction/Imputation**
 
 After training, use the trained model to predict/impute gene expression at custom coordinates:
 

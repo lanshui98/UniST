@@ -84,6 +84,9 @@ python -m upsampling.test_upsampling \
 - `--flexible`: Enable flexible upsampling rate (recommended)
 - `--no_gt`: Skip evaluation (use when you don't have ground truth)
 
+**Pre-trained weights**
+Download the weights from google drive [link](https://drive.google.com/file/d/1af_de8YnG5eOAJaSDy1C5CmZRqaCCYb-/view?usp=sharing) and put under ./external/RepKPU_ops/pretrain/
+
 ### Interpolation
 
 Run slice interpolation using InterpolAI:
@@ -99,6 +102,9 @@ python -m interpolation.main \
 - `auto`: Automatically detect and interpolate missing slices
 - `no_skip`: Interpolate without skipping slices (requires `--skip` argument)
 - `skip`: Interpolate with specified skip values (requires `--skip` argument)
+
+**Pre-trained weights**
+Download the weights from google drive [link](https://drive.google.com/drive/folders/1zw6kgpnxat_CEFoDWaVIHndxuKqk5vmD?usp=sharing) and put under ./external/InterpolAI/interpolation/
 
 ### Gene imputation
 

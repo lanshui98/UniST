@@ -1,0 +1,31 @@
+# UniST Core Dependencies
+# Install with: pip install -r requirements.txt
+
+# Deep Learning
+torch>=1.8.0
+einops==0.7.0
+tensorflow<2.11
+
+# Scientific Computing
+numpy>=1.19.0
+scipy>=1.5.0
+scikit-learn==1.4.2
+
+# Data Handling
+pandas>=1.0.0
+anndata>=0.8.0
+h5py
+
+# 3D Processing
+open3d>=0.13.0
+pyvista>=0.40.0
+
+# Image Processing
+imageio
+pillow
+tifffile
+
+# Utilities
+tqdm
+natsort
+ninja

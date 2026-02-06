@@ -15,7 +15,7 @@ cd /path/to/UniST
 pip install -e .
 ```
 
-### Build CUDA extensions (only for upsampling)
+#### Build CUDA extensions (only for upsampling)
 
 ```
 # For A100, RTX 3090, etc.
@@ -51,7 +51,9 @@ python setup.py install
 cd ../../../
 ```
 
-## Upsampling
+## Quick Start
+
+#### Upsampling
 
 Test upsampling on point cloud files:
 
@@ -75,7 +77,7 @@ python -m upsampling.test_upsampling \
 - `--flexible`: Enable flexible upsampling rate (recommended)
 - `--no_gt`: Skip evaluation (use when you don't have ground truth)
 
-## Interpolation
+#### Interpolation
 
 Run slice interpolation using InterpolAI:
 
@@ -91,7 +93,7 @@ python -m interpolation.main \
 - `no_skip`: Interpolate without skipping slices (requires `--skip` argument)
 - `skip`: Interpolate with specified skip values (requires `--skip` argument)
 
-## Gene imputation
+#### Gene imputation
 
 **Step 1: Train Embedder (Graph Autoencoder)**
 

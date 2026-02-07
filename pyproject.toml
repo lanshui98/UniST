@@ -54,15 +54,10 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = [
-    "downstream",
-    "downstream.morph",
-    "downstream.vis",
-    "interpolation",
-    "interpolation.ReHo",
-    "metrics",
-    "upsampling",
-]
+package-dir = {"" = "src"}
+
+[tool.setuptools.packages.find]
+where = ["src"]
 
 [tool.setuptools.package-data]
 

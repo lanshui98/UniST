@@ -41,7 +41,7 @@ python -m upsampling.test_upsampling \
 
 **Arguments:**
 - `--dataset`: Dataset type
-- `--input_dir`: Directory containing input `.xyz` point cloud files
+- `--input_dir`: Directory containing input `.npy` point cloud files
 - `--ckpt`: Path to model checkpoint file (e.g., `pretrain/ckpt-best.pth`)
 - `--r`: Upsampling rate
 - `--save_dir`: Directory to save upsampled point clouds

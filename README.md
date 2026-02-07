@@ -19,37 +19,7 @@ pip install git+https://github.com/lanshui98/UniST.git
 #### Build CUDA extensions (only for upsampling)
 
 ```
-# For A100, RTX 3090, etc.
-export TORCH_CUDA_ARCH_LIST="8.0"
-
-# For V100
-# export TORCH_CUDA_ARCH_LIST="7.0"
-
-# For RTX 2080, Titan RTX
-# export TORCH_CUDA_ARCH_LIST="7.5"
-
-# For RTX 3090, A6000
-# export TORCH_CUDA_ARCH_LIST="8.6"
-```
-
-Build the CUDA extensions:
-
-```
 python setup_cuda_extensions.py
-```
-
-Or build manually:
-
-```
-# Build Chamfer3D
-cd external/RepKPU_ops/models/Chamfer3D
-python setup.py install
-cd ../../../../
-
-# Build pointops
-cd external/RepKPU_ops/models/pointops
-python setup.py install
-cd ../../../
 ```
 
 ## Quick Start

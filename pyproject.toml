@@ -54,10 +54,10 @@ dev = [
 ]
 
 [tool.setuptools]
-package-dir = {"" = "src"}
+package-dir = {"unist" = "."}
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.setuptools.packages]
+find = {}
 
 [tool.setuptools.package-data]
 

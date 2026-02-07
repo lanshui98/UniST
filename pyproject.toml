@@ -54,11 +54,10 @@ dev = [
 ]
 
 [tool.setuptools]
-packages = ["unist"]
+package-dir = {"unist" = "."}
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["unist*"]
+[tool.setuptools.packages]
+find = {}
 
 [tool.setuptools.package-data]
 unist = ["*.json", "*.yaml", "*.txt"]

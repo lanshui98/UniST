@@ -16,6 +16,18 @@ A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 pip install git+https://github.com/lanshui98/UniST.git
 ```
 
+**Using Conda (faster):**
+
+```
+conda activate myenv
+
+conda install -c conda-forge \
+  grpcio protobuf tensorflow pytorch \
+  numpy scipy scikit-learn
+
+pip install git+https://github.com/lanshui98/UniST.git
+```
+
 **Using requirements.txt:**
 ```
 pip install -r requirements.txt

@@ -611,7 +611,7 @@ class GraphST3D(Dataset):
         self.coordinates -= 0.5
         self.coordinates *= 2.0
 
-            if keep_ratio:
+        if keep_ratio:
             if preserve_z_scale:
                 # Don't compress z-direction, let z maintain a larger range
                 max_xy_range = max(x_range, y_range)

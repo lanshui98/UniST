@@ -80,6 +80,8 @@ Download the weights from google drive [link](https://drive.google.com/drive/fol
 
 ### Gene imputation
 
+[Details](https://github.com/lanshui98/SUICA_pro)
+
 **Step 1: Train Embedder (Graph Autoencoder)**
 
 Train a graph autoencoder to learn embeddings from spatial transcriptomics data:

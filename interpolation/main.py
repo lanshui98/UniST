@@ -31,26 +31,22 @@ if _external_interpolai_path is None:
     _external_interpolai_path = os.path.join(_package_root, 'external', 'InterpolAI')
 
 # Add to sys.path if it exists
-if os.path.exists(_external_interpolai_path):
-    if _external_interpolai_path not in sys.path:
-        sys.path.insert(0, _external_interpolai_path)
-        print(f"✅ Added InterpolAI to path: {_external_interpolai_path}")
-else:
-    print(f"⚠️  Warning: InterpolAI path not found: {_external_interpolai_path}")
-    print(f"Tried paths: {_possible_paths}")
-    print(f"Current working directory: {os.getcwd()}")
+if not os.path.exists(_external_interpolai_path):
+    print(f"Error: InterpolAI path not found: {_external_interpolai_path}")
+    sys.exit(1)
 
-# Try to import interpolation functions
+if _external_interpolai_path not in sys.path:
+    sys.path.insert(0, _external_interpolai_path)
+
+# Import dependencies
 try:
     import tensorflow as tf
-    print(f"✅ TensorFlow imported (version: {tf.__version__})")
 except ImportError as e:
-    print(f"❌ Error: Could not import TensorFlow: {e}")
+    print(f"Error: Could not import TensorFlow: {e}")
     sys.exit(1)
 
 # Import interpolation functions
 try:
-    # Try importing from the external InterpolAI directory
     from interpolation.interpolation_function_auto import (
         interpolate_from_image_list,
         list_skip_images
@@ -61,46 +57,24 @@ try:
     from interpolation.interpolation_functions_no_skip import (
         interpolate_from_image_stack_no_skip
     )
-    print(f"✅ InterpolAI functions imported successfully")
 except ImportError as e:
-    print(f"❌ Error: Could not import InterpolAI functions: {e}")
-    print(f"\nExpected path: {_external_interpolai_path}")
-    print(f"Path exists: {os.path.exists(_external_interpolai_path) if _external_interpolai_path else False}")
-    print(f"Current sys.path entries (first 5):")
-    for i, p in enumerate(sys.path[:5]):
-        print(f"  {i}: {p}")
-    print("\nPlease ensure:")
-    print("  1. InterpolAI code is in external/InterpolAI/ directory")
-    print("  2. You are running from the UniST root directory")
-    print("  3. In Colab, ensure you have run: %cd UniST")
+    print(f"Error: Could not import InterpolAI functions: {e}")
+    print(f"Expected path: {_external_interpolai_path}")
+    print("Please ensure InterpolAI is properly set up in external/InterpolAI/")
     sys.exit(1)
 
 
 def load_model():
     """Load the TensorFlow SavedModel from InterpolAI package."""
-    # Try to get model path from the external InterpolAI directory
-    if _external_interpolai_path and os.path.exists(_external_interpolai_path):
-        # Model should be at external/InterpolAI/interpolation/model
-        model_path = os.path.join(_external_interpolai_path, "interpolation", "model")
-    else:
-        # Fallback: try to get from imported interpolation module
-        try:
-            import interpolation
-            interpolation_path = os.path.dirname(interpolation.__file__)
-            model_path = os.path.join(interpolation_path, "model")
-        except Exception:
-            # Last resort: relative path from current working directory
-            model_path = os.path.join("external", "InterpolAI", "interpolation", "model")
+    model_path = os.path.join(_external_interpolai_path, "interpolation", "model")
     
     if not os.path.exists(model_path):
         raise FileNotFoundError(
             f"Model not found at {model_path}. "
-            f"Please ensure InterpolAI is properly set up and the model directory exists. "
-            f"Expected location: {os.path.join(_external_interpolai_path or 'external/InterpolAI', 'interpolation', 'model')}"
+            "Please ensure the model directory exists in external/InterpolAI/interpolation/model/"
         )
-    print(f"Loading model from: {model_path}")
-    model = tf.saved_model.load(model_path)
-    return model
+    
+    return tf.saved_model.load(model_path)
 
 
 def run_auto(tile_size, pth, model):
@@ -169,20 +143,13 @@ def main():
     
     if not os.path.exists(args.pth):
         print(f"Error: Path does not exist: {args.pth}")
-        print(f"Current working directory: {os.getcwd()}")
         sys.exit(1)
     
-    print(f"Using input directory: {args.pth}")
-    
-    print("Loading model...")
     try:
         model = load_model()
-        print("Model loaded successfully.")
     except Exception as e:
         print(f"Error loading model: {e}")
         sys.exit(1)
-    
-    print(f"Running interpolation in '{args.mode}' mode...")
     try:
         if args.mode == "auto":
             run_auto(tuple(args.tile_size), args.pth, model)
@@ -190,7 +157,6 @@ def main():
             run_no_skip(tuple(args.tile_size), args.pth, args.skip, model)
         elif args.mode == "skip":
             run_skip(tuple(args.tile_size), args.pth, args.skip, model)
-        print("Interpolation completed successfully!")
     except Exception as e:
         print(f"Error during interpolation: {e}")
         import traceback

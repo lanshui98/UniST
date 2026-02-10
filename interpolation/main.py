@@ -78,15 +78,27 @@ except ImportError as e:
 
 def load_model():
     """Load the TensorFlow SavedModel from InterpolAI package."""
-    import interpolation
-    interpolation_path = os.path.dirname(interpolation.__file__)
-    model_path = os.path.join(interpolation_path, "model")
+    # Try to get model path from the external InterpolAI directory
+    if _external_interpolai_path and os.path.exists(_external_interpolai_path):
+        # Model should be at external/InterpolAI/interpolation/model
+        model_path = os.path.join(_external_interpolai_path, "interpolation", "model")
+    else:
+        # Fallback: try to get from imported interpolation module
+        try:
+            import interpolation
+            interpolation_path = os.path.dirname(interpolation.__file__)
+            model_path = os.path.join(interpolation_path, "model")
+        except Exception:
+            # Last resort: relative path from current working directory
+            model_path = os.path.join("external", "InterpolAI", "interpolation", "model")
     
     if not os.path.exists(model_path):
         raise FileNotFoundError(
             f"Model not found at {model_path}. "
-            "Please ensure InterpolAI is properly set up and the model directory exists."
+            f"Please ensure InterpolAI is properly set up and the model directory exists. "
+            f"Expected location: {os.path.join(_external_interpolai_path or 'external/InterpolAI', 'interpolation', 'model')}"
         )
+    print(f"Loading model from: {model_path}")
     model = tf.saved_model.load(model_path)
     return model
 
@@ -144,9 +156,23 @@ def main():
 
     args = parser.parse_args()
     
+    # Convert relative path to absolute path if needed
+    if not os.path.isabs(args.pth):
+        # Try to resolve relative to current working directory
+        args.pth = os.path.abspath(args.pth)
+        # If still doesn't exist, try relative to project root
+        if not os.path.exists(args.pth):
+            project_root = Path(__file__).parent.parent.parent
+            potential_path = project_root / args.pth
+            if potential_path.exists():
+                args.pth = str(potential_path.resolve())
+    
     if not os.path.exists(args.pth):
         print(f"Error: Path does not exist: {args.pth}")
+        print(f"Current working directory: {os.getcwd()}")
         sys.exit(1)
+    
+    print(f"Using input directory: {args.pth}")
     
     print("Loading model...")
     try:

@@ -9,13 +9,48 @@ import os
 import sys
 
 # Add external/InterpolAI to Python path
-_package_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-_external_interpolai_path = os.path.join(_package_root, 'external', 'InterpolAI')
-if os.path.exists(_external_interpolai_path) and _external_interpolai_path not in sys.path:
-    sys.path.insert(0, _external_interpolai_path)
+# Try multiple possible paths to handle different environments (local, Colab, etc.)
+from pathlib import Path
 
+_possible_paths = [
+    Path(__file__).parent.parent.parent / 'external' / 'InterpolAI',
+    Path.cwd() / 'external' / 'InterpolAI',
+    Path.cwd() / 'UniST' / 'external' / 'InterpolAI',
+]
+
+_external_interpolai_path = None
+for path in _possible_paths:
+    path = path.resolve()
+    if path.exists():
+        _external_interpolai_path = str(path)
+        break
+
+# Fallback to original method
+if _external_interpolai_path is None:
+    _package_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    _external_interpolai_path = os.path.join(_package_root, 'external', 'InterpolAI')
+
+# Add to sys.path if it exists
+if os.path.exists(_external_interpolai_path):
+    if _external_interpolai_path not in sys.path:
+        sys.path.insert(0, _external_interpolai_path)
+        print(f"✅ Added InterpolAI to path: {_external_interpolai_path}")
+else:
+    print(f"⚠️  Warning: InterpolAI path not found: {_external_interpolai_path}")
+    print(f"Tried paths: {_possible_paths}")
+    print(f"Current working directory: {os.getcwd()}")
+
+# Try to import interpolation functions
 try:
     import tensorflow as tf
+    print(f"✅ TensorFlow imported (version: {tf.__version__})")
+except ImportError as e:
+    print(f"❌ Error: Could not import TensorFlow: {e}")
+    sys.exit(1)
+
+# Import interpolation functions
+try:
+    # Try importing from the external InterpolAI directory
     from interpolation.interpolation_function_auto import (
         interpolate_from_image_list,
         list_skip_images
@@ -26,10 +61,18 @@ try:
     from interpolation.interpolation_functions_no_skip import (
         interpolate_from_image_stack_no_skip
     )
+    print(f"✅ InterpolAI functions imported successfully")
 except ImportError as e:
-    print(f"Error: Could not import InterpolAI: {e}")
+    print(f"❌ Error: Could not import InterpolAI functions: {e}")
     print(f"\nExpected path: {_external_interpolai_path}")
-    print("Please ensure InterpolAI code is in external/InterpolAI/ directory.")
+    print(f"Path exists: {os.path.exists(_external_interpolai_path) if _external_interpolai_path else False}")
+    print(f"Current sys.path entries (first 5):")
+    for i, p in enumerate(sys.path[:5]):
+        print(f"  {i}: {p}")
+    print("\nPlease ensure:")
+    print("  1. InterpolAI code is in external/InterpolAI/ directory")
+    print("  2. You are running from the UniST root directory")
+    print("  3. In Colab, ensure you have run: %cd UniST")
     sys.exit(1)
 
 

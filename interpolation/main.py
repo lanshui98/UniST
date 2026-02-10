@@ -35,6 +35,18 @@ if not os.path.exists(_external_interpolai_path):
     print(f"Error: InterpolAI path not found: {_external_interpolai_path}")
     sys.exit(1)
 
+# Ensure __init__.py files exist (for Colab compatibility)
+interpolation_dir = os.path.join(_external_interpolai_path, "interpolation")
+interpolation_init = os.path.join(interpolation_dir, "__init__.py")
+if os.path.exists(interpolation_dir) and not os.path.exists(interpolation_init):
+    with open(interpolation_init, 'w') as f:
+        f.write('"""InterpolAI interpolation functions."""\n')
+
+interpolai_init = os.path.join(_external_interpolai_path, "__init__.py")
+if not os.path.exists(interpolai_init):
+    with open(interpolai_init, 'w') as f:
+        f.write('"""InterpolAI: Slice interpolation for 3D spatial transcriptomics."""\n')
+
 if _external_interpolai_path not in sys.path:
     sys.path.insert(0, _external_interpolai_path)
 
@@ -59,8 +71,7 @@ try:
     )
 except ImportError as e:
     print(f"Error: Could not import InterpolAI functions: {e}")
-    print(f"Expected path: {_external_interpolai_path}")
-    print("Please ensure InterpolAI is properly set up in external/InterpolAI/")
+    print(f"Please ensure InterpolAI is properly set up in {_external_interpolai_path}")
     sys.exit(1)
 
 
@@ -130,16 +141,9 @@ def main():
 
     args = parser.parse_args()
     
-    # Convert relative path to absolute path if needed
+    # Convert relative path to absolute path
     if not os.path.isabs(args.pth):
-        # Try to resolve relative to current working directory
         args.pth = os.path.abspath(args.pth)
-        # If still doesn't exist, try relative to project root
-        if not os.path.exists(args.pth):
-            project_root = Path(__file__).parent.parent.parent
-            potential_path = project_root / args.pth
-            if potential_path.exists():
-                args.pth = str(potential_path.resolve())
     
     if not os.path.exists(args.pth):
         print(f"Error: Path does not exist: {args.pth}")
@@ -147,10 +151,6 @@ def main():
     
     try:
         model = load_model()
-    except Exception as e:
-        print(f"Error loading model: {e}")
-        sys.exit(1)
-    try:
         if args.mode == "auto":
             run_auto(tuple(args.tile_size), args.pth, model)
         elif args.mode == "no_skip":
@@ -158,7 +158,7 @@ def main():
         elif args.mode == "skip":
             run_skip(tuple(args.tile_size), args.pth, args.skip, model)
     except Exception as e:
-        print(f"Error during interpolation: {e}")
+        print(f"Error: {e}")
         import traceback
         traceback.print_exc()
         sys.exit(1)

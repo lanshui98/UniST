@@ -8,47 +8,40 @@ import argparse
 import os
 import sys
 
-# Add external/InterpolAI to Python path
-# Try multiple possible paths to handle different environments (local, Colab, etc.)
+# Ensure project root is in Python path for external imports
 from pathlib import Path
 
-_possible_paths = [
-    Path(__file__).parent.parent.parent / 'external' / 'InterpolAI',
-    Path.cwd() / 'external' / 'InterpolAI',
-    Path.cwd() / 'UniST' / 'external' / 'InterpolAI',
-]
+# Get project root: go up from interpolation/main.py to project root
+# __file__ is at interpolation/main.py, so parent.parent is project root
+_project_root = Path(__file__).parent.parent.resolve()
 
-_external_interpolai_path = None
-for path in _possible_paths:
-    path = path.resolve()
-    if path.exists():
-        _external_interpolai_path = str(path)
-        break
+# Verify by checking if external directory exists
+if not (_project_root / 'external').exists():
+    # Fallback: try to find project root by looking for external directory
+    current = Path(__file__).parent
+    while current != current.parent:
+        if (current / 'external').exists():
+            _project_root = current.resolve()
+            break
+        current = current.parent
 
-# Fallback to original method
-if _external_interpolai_path is None:
-    _package_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-    _external_interpolai_path = os.path.join(_package_root, 'external', 'InterpolAI')
+if str(_project_root) not in sys.path:
+    sys.path.insert(0, str(_project_root))
 
-# Add to sys.path if it exists
-if not os.path.exists(_external_interpolai_path):
-    print(f"Error: InterpolAI path not found: {_external_interpolai_path}")
-    sys.exit(1)
+# Ensure __init__.py files exist for package structure
+_external_dir = _project_root / 'external'
+_interpolai_dir = _external_dir / 'InterpolAI'
+_interpolation_dir = _interpolai_dir / 'interpolation'
 
-# Ensure __init__.py files exist (for Colab compatibility)
-interpolation_dir = os.path.join(_external_interpolai_path, "interpolation")
-interpolation_init = os.path.join(interpolation_dir, "__init__.py")
-if os.path.exists(interpolation_dir) and not os.path.exists(interpolation_init):
-    with open(interpolation_init, 'w') as f:
-        f.write('"""InterpolAI interpolation functions."""\n')
+# Create __init__.py files if they don't exist
+if _external_dir.exists() and not (_external_dir / '__init__.py').exists():
+    (_external_dir / '__init__.py').write_text('"""External dependencies."""\n')
 
-interpolai_init = os.path.join(_external_interpolai_path, "__init__.py")
-if not os.path.exists(interpolai_init):
-    with open(interpolai_init, 'w') as f:
-        f.write('"""InterpolAI: Slice interpolation for 3D spatial transcriptomics."""\n')
+if _interpolai_dir.exists() and not (_interpolai_dir / '__init__.py').exists():
+    (_interpolai_dir / '__init__.py').write_text('"""InterpolAI: Slice interpolation for 3D spatial transcriptomics."""\n')
 
-if _external_interpolai_path not in sys.path:
-    sys.path.insert(0, _external_interpolai_path)
+if _interpolation_dir.exists() and not (_interpolation_dir / '__init__.py').exists():
+    (_interpolation_dir / '__init__.py').write_text('"""InterpolAI interpolation functions."""\n')
 
 # Import dependencies
 try:
@@ -59,33 +52,33 @@ except ImportError as e:
 
 # Import interpolation functions
 try:
-    from interpolation.interpolation_function_auto import (
+    from external.InterpolAI.interpolation.interpolation_function_auto import (
         interpolate_from_image_list,
         list_skip_images
     )
-    from interpolation.interpolation_function_skip import (
+    from external.InterpolAI.interpolation.interpolation_function_skip import (
         interpolate_from_image_stack_skip
     )
-    from interpolation.interpolation_functions_no_skip import (
+    from external.InterpolAI.interpolation.interpolation_functions_no_skip import (
         interpolate_from_image_stack_no_skip
     )
 except ImportError as e:
     print(f"Error: Could not import InterpolAI functions: {e}")
-    print(f"Please ensure InterpolAI is properly set up in {_external_interpolai_path}")
+    print(f"Please ensure InterpolAI is properly set up in {_interpolai_dir}")
     sys.exit(1)
 
 
 def load_model():
     """Load the TensorFlow SavedModel from InterpolAI package."""
-    model_path = os.path.join(_external_interpolai_path, "interpolation", "model")
+    model_path = _interpolation_dir / "model"
     
-    if not os.path.exists(model_path):
+    if not model_path.exists():
         raise FileNotFoundError(
             f"Model not found at {model_path}. "
             "Please ensure the model directory exists in external/InterpolAI/interpolation/model/"
         )
     
-    return tf.saved_model.load(model_path)
+    return tf.saved_model.load(str(model_path))
 
 
 def run_auto(tile_size, pth, model):

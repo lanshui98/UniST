@@ -119,10 +119,24 @@ def convert_directory_to_3channel(
         output_dir.mkdir(parents=True, exist_ok=True)
     
     # Find all matching files
-    patterns = pattern.split(",") if "," in pattern else [pattern]
+    # Handle patterns like "*.{tif,tiff}" by expanding to multiple patterns
+    if "{tif,tiff}" in pattern or "{tif,tiff}" in pattern:
+        patterns = [
+            pattern.replace("{tif,tiff}", "tif"),
+            pattern.replace("{tif,tiff}", "tiff")
+        ]
+    elif "," in pattern:
+        patterns = [p.strip() for p in pattern.split(",")]
+    else:
+        patterns = [pattern]
+    
     tif_files = []
     for p in patterns:
         tif_files.extend(sorted(input_dir.glob(p.strip())))
+    
+    # Remove duplicates while preserving order
+    seen = set()
+    tif_files = [f for f in tif_files if not (f in seen or seen.add(f))]
     
     if not tif_files:
         if verbose:

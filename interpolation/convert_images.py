@@ -55,8 +55,8 @@ Examples:
     parser.add_argument(
         "--pattern",
         type=str,
-        default="*.{tif,tiff}",
-        help="File pattern to match (default: '*.{tif,tiff}')"
+        default="*.tif",
+        help="File pattern to match (default: '*.tif'). Use comma-separated for multiple: '*.tif,*.tiff'"
     )
     parser.add_argument(
         "--quiet",

@@ -80,16 +80,15 @@ Download the weights from google drive [link](https://drive.google.com/drive/fol
 
 ### Gene imputation
 
-[Details](https://github.com/lanshui98/SUICA_pro)
+[Model Details](https://github.com/lanshui98/SUICA_pro)
 
 **Step 1: Train Embedder (Graph Autoencoder)**
 
 Train a graph autoencoder to learn embeddings from spatial transcriptomics data:
 
 ```
-python -m external.SUICA_pro.train \
-    --mode embedder \
-    --conf external/SUICA_pro/configs/ST/embedder_gae.yaml
+cd external/SUICA_pro
+python train.py --mode embedder --conf ./configs/ST/embedder_gae.yaml
 ```
 
 **Step 2: Train INR (Implicit Neural Representation)**
@@ -97,9 +96,7 @@ python -m external.SUICA_pro.train \
 Train an INR model to learn continuous representations:
 
 ```
-python -m external.SUICA_pro.train \
-    --mode inr \
-    --conf external/SUICA_pro/configs/ST/inr_embd.yaml
+python train.py --mode inr --conf ./configs/ST/inr_embd.yaml
 ```
 
 **Step 3:  Prediction/Imputation**
@@ -107,7 +104,5 @@ python -m external.SUICA_pro.train \
 After training, use the trained model to predict/impute gene expression at custom coordinates:
 
 ```
-python -m external.SUICA_pro.predict \
-    --mode inr \
-    --conf external/SUICA_pro/configs/ST/inr_pred.yaml
+python train.py --mode inr --conf ./configs/ST/inr_pred.yaml 
 ```

@@ -31,7 +31,7 @@ python setup_cuda_extensions.py
 ## Quick Start
 
 ### Upsampling
-[Tutorial](https://unist-tutorial.readthedocs.io/en/latest/upsampling.html)
+[Tutorial Page](https://unist-tutorial.readthedocs.io/en/latest/upsampling.html)
 
 ```
 python -m upsampling.test_upsampling \
@@ -59,7 +59,7 @@ Download the weights from google drive [link](https://drive.google.com/file/d/1a
 
 ### Interpolation
 
-[Tutorial](https://unist-tutorial.readthedocs.io/en/latest/interpolation.html)
+[Tutorial Page](https://unist-tutorial.readthedocs.io/en/latest/interpolation.html)
 
 ```
 python -m interpolation.main \
@@ -79,4 +79,4 @@ Download the weights from google drive [link](https://drive.google.com/drive/fol
 
 ### Gene imputation
 
-[Tutorial](https://unist-tutorial.readthedocs.io/en/latest/gene_imputation.html)-[Model Details](https://github.com/lanshui98/SUICA_pro)
+[Tutorial Page](https://unist-tutorial.readthedocs.io/en/latest/gene_imputation.html) --- [Model Details](https://github.com/lanshui98/SUICA_pro)

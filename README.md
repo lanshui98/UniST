@@ -104,5 +104,5 @@ python train.py --mode inr --conf ./configs/ST/inr_embd.yaml
 After training, use the trained model to predict/impute gene expression at custom coordinates:
 
 ```
-python train.py --mode inr --conf ./configs/ST/inr_pred.yaml 
+python predict.py --mode inr --conf ./configs/ST/inr_pred.yaml 
 ```

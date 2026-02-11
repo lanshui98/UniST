@@ -31,10 +31,9 @@ python setup_cuda_extensions.py
 ## Quick Start
 
 ### Upsampling
+[Tutorial](https://unist-tutorial.readthedocs.io/en/latest/upsampling.html)
 
-Test upsampling on point cloud files:
-
-```bash
+```
 python -m upsampling.test_upsampling \
     --dataset pugan \
     --input_dir /path/to/input/pointclouds \
@@ -60,9 +59,9 @@ Download the weights from google drive [link](https://drive.google.com/file/d/1a
 
 ### Interpolation
 
-Run slice interpolation using InterpolAI:
+[Tutorial](https://unist-tutorial.readthedocs.io/en/latest/interpolation.html)
 
-```bash
+```
 python -m interpolation.main \
     --mode auto \
     --tile_size 1024 1024 \
@@ -80,29 +79,4 @@ Download the weights from google drive [link](https://drive.google.com/drive/fol
 
 ### Gene imputation
 
-[Model Details](https://github.com/lanshui98/SUICA_pro)
-
-**Step 1: Train Embedder (Graph Autoencoder)**
-
-Train a graph autoencoder to learn embeddings from spatial transcriptomics data:
-
-```
-cd external/SUICA_pro
-python train.py --mode embedder --conf ./configs/ST/embedder_gae.yaml
-```
-
-**Step 2: Train INR (Implicit Neural Representation)**
-
-Train an INR model to learn continuous representations:
-
-```
-python train.py --mode inr --conf ./configs/ST/inr_embd.yaml
-```
-
-**Step 3:  Prediction/Imputation**
-
-After training, use the trained model to predict/impute gene expression at custom coordinates:
-
-```
-python predict.py --mode inr --conf ./configs/ST/inr_pred.yaml 
-```
+[Tutorial](https://unist-tutorial.readthedocs.io/en/latest/gene_imputation.html)-[Model Details](https://github.com/lanshui98/SUICA_pro)

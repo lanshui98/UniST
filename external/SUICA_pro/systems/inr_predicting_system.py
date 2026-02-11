@@ -9,8 +9,23 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 import os
 import importlib
+
 from pathlib import Path
 from omegaconf import OmegaConf
+
+# PyTorch 2.6+ compatibility: Add omegaconf classes to safe globals for weights_only=True mode
+# This is needed because Lightning may internally use weights_only=True even when we pass weights_only=False
+try:
+    from omegaconf import DictConfig
+    from omegaconf.dictconfig import DictConfig as DictConfigLower
+    from omegaconf.base import ContainerMetadata
+    torch.serialization.add_safe_globals([
+        DictConfig,
+        DictConfigLower,
+        ContainerMetadata,
+    ])
+except ImportError:
+    pass  # omegaconf not available, skip
 
 from networks import SirenNet, FourierFeatureNet, NGP
 from utils import metrics, plot_ST
@@ -311,7 +326,10 @@ def predict_inr(configs):
     decoder = None
     if getattr(pipeline_configs.inr, "decoder", None) and getattr(pipeline_configs.inr.decoder, "ckpt", None):
         dec_ckpt = _fix_lightning_version(_resolve_path(pipeline_configs.inr.decoder.ckpt, anchors))
-        decoder = EmbedderFittingSystem.load_from_checkpoint(str(dec_ckpt)).fitting_model.decoder
+        decoder = EmbedderFittingSystem.load_from_checkpoint(
+            str(dec_ckpt),
+            weights_only=False
+        ).fitting_model.decoder
         print(f"[decoder] loaded from: {dec_ckpt}")
     else:
         # Ensure field exists to avoid getattr errors later
@@ -355,6 +373,7 @@ def predict_inr(configs):
         configs=pipeline_configs,
         val_pca=None,
         decoder=decoder,
+        weights_only=False
     )
     fitting_system.pipeline_configs = pipeline_configs
     fitting_system.eval()

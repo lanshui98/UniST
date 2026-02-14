@@ -427,6 +427,7 @@ def plot_slice_stack(
             point_size=point_size,
             opacity=opacity,
             clim=(0, len(id2label) - 1),
+            show_scalar_bar=False,
         )
         any_added = True
 

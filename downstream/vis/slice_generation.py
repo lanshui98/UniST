@@ -335,6 +335,7 @@ def plot_slice_stack(
     jupyter: Union[bool, str] = False,
     off_screen: bool = False,
     filename: Optional[str] = None,
+    cpo: Union[str, list, tuple] = "iso",
 ) -> pv.Plotter:
     """
     Overlay all slices at once, color them using the same regions_colors; optionally separate slices along an axis.
@@ -374,6 +375,10 @@ def plot_slice_stack(
         If True, render off-screen (e.g. for saving or static display).
     filename : str, optional
         If set, save screenshot to this path (e.g. "slices.png") and close plotter.
+    cpo : str, list, or tuple, default="iso"
+        Camera position. String: "iso", "xy", "xz", "yz", "yx", "zx", "zy".
+        List/tuple: [camera_position, focal_point, view_up] e.g. [(2, 5, 10), (0, 0, 0), (0, 0, 1)],
+        or a view direction vector e.g. [-1, 2, -5].
 
     Returns
     -------
@@ -444,9 +449,11 @@ def plot_slice_stack(
         legend_entries = list(zip(id2label, hex_list))
         pl.add_legend(legend_entries, face="circle", bcolor=None, loc=legend_loc)
 
+    pl.camera_position = cpo
+
     if filename:
         pl.screenshot(filename)
         pl.close()
         return pl
 
-    return pl.show(return_cpos=True, jupyter_backend=jupyter_backend)
+    return pl.show(return_cpos=True, jupyter_backend=jupyter_backend, cpos=cpo)

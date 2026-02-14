@@ -329,54 +329,75 @@ def plot_slice_stack(
     spacing_axis: int = 1,      # 0=x, 1=y, 2=z
     spacing: float = 0.0,       # If >0, separate adjacent slices
     use_parallel_projection: bool = False,
-    show_colorbar: bool = True
+    show_legend: bool = True,
+    legend_loc: str = "lower right",
+    window_size: Tuple[int, int] = (512, 512),
+    jupyter: Union[bool, str] = False,
+    off_screen: bool = False,
+    filename: Optional[str] = None,
 ) -> pv.Plotter:
     """
     Overlay all slices at once, color them using the same regions_colors; optionally separate slices along an axis.
-    
+    Window size, static/jupyter output, and legend style match three_d_plot.
+
     Parameters
     ----------
     slices : sequence of pv.PolyData
-        List of slice PolyData objects
+        List of slice PolyData objects (e.g. from slice_stack).
     key : str, default="heart_regions"
-        Key in point_data to use for coloring
+        Key in point_data to use for coloring (categorical region labels).
     regions_colors : dict
-        Dictionary mapping region names to hex color strings (e.g., {'region1': '#FF0000'})
-        Required parameter for consistent coloring across all slices
+        Mapping region name -> hex color (e.g. {'LV': '#e41a1c', 'RV': '#377eb8'}).
     point_size : float, default=2.5
-        Size of points in the visualization
+        Size of points.
     opacity : float, default=1.0
-        Opacity of the points (0-1)
+        Opacity of the points (0-1).
     background : str, default="white"
-        Background color
+        Background color.
     show_axes : bool, default=True
-        Whether to show coordinate axes
+        Whether to show coordinate axes.
     spacing_axis : int, default=1
-        Axis along which to space slices (0=x, 1=y, 2=z)
+        Axis along which to space slices: 0=x, 1=y, 2=z. Slices are shifted along this axis by spacing per index.
     spacing : float, default=0.0
-        Spacing between adjacent slices. If > 0, slices are separated along spacing_axis
+        If > 0, each slice is shifted by (slice_index * spacing) along spacing_axis so they don't overlap (e.g. 80.0).
     use_parallel_projection : bool, default=False
-        Enable parallel projection for cleaner cross-sections
-    show_colorbar : bool, default=True
-        Whether to show colorbar with region labels
-    
+        If True, use parallel projection (no perspective) for cleaner cross-sections.
+    show_legend : bool, default=True
+        If True, show a categorical legend (circle + label) like three_d_plot.
+    legend_loc : str, default="lower right"
+        Legend position: "lower right", "upper left", etc.
+    window_size : tuple, default=(512, 512)
+        (width, height) in pixels.
+    jupyter : bool or str, default=False
+        False: desktop window. True or "static": static image in notebook. "trame": trame widget.
+    off_screen : bool, default=False
+        If True, render off-screen (e.g. for saving or static display).
+    filename : str, optional
+        If set, save screenshot to this path (e.g. "slices.png") and close plotter.
+
     Returns
     -------
-    pv.Plotter
-        PyVista Plotter object
-    
-    Raises
-    ------
-    ValueError
-        If no valid slices are found or spacing_axis is invalid
+    pv.Plotter or return value of show()
+        Plotter object, or return value of pl.show() when filename is not set.
     """
     assert spacing_axis in (0, 1, 2), "spacing_axis must be 0(x)/1(y)/2(z)"
-    pl = pv.Plotter()
+
+    jupyter_backend = "none"
+    if jupyter is False:
+        off_screen_plot = off_screen
+    else:
+        off_screen_plot = True
+        jupyter_backend = "static" if jupyter is True else jupyter
+
+    pl = pv.Plotter(
+        off_screen=off_screen_plot,
+        window_size=window_size,
+        notebook=(jupyter_backend != "none"),
+    )
     pl.set_background(background)
     if use_parallel_projection:
         pl.enable_parallel_projection()
 
-    # Build unified cmap + mapping
     cmap, label2id, id2label = build_region_mapping_for_slices(slices, key, regions_colors)
 
     any_added = False
@@ -387,13 +408,11 @@ def plot_slice_stack(
             continue
 
         s2 = s.copy()
-        # Separate slices with spacing
         if spacing > 0:
             pts = s2.points.copy()
             pts[:, spacing_axis] += i * spacing
             s2.points = pts
 
-        # Convert labels to int uniformly
         arr = s2.point_data[key]
         arr = _to_str_array(arr)
         arr_int = np.array([label2id.get(v, label2id.get("Unknown")) for v in arr], dtype=int)
@@ -407,7 +426,7 @@ def plot_slice_stack(
             style="points",
             point_size=point_size,
             opacity=opacity,
-            clim=(0, len(id2label)-1)  # Fixed range to avoid color misalignment from auto-scaling
+            clim=(0, len(id2label) - 1),
         )
         any_added = True
 
@@ -417,25 +436,16 @@ def plot_slice_stack(
     if show_axes:
         pl.add_axes()
 
-    # Customize colorbar ticks and labels for categorical data
-    if show_colorbar:
-        # Create a scalar_bar with custom ticks to display category names
-        sb = pl.add_scalar_bar(title=key, n_labels=len(id2label))
-        # Set ticks at integer positions
-        ticks = list(range(len(id2label)))
-        # matplotlib-style tick/label settings
-        # Note: Sometimes the backend cannot directly modify scalar_bar ticks,
-        # but fixed clim + ListedColormap + n_labels usually gives evenly spaced ticks.
-        # For finer control, you can operate on pl.scalar_bars[key] after rendering (varies by version).
-        try:
-            # Some versions support:
-            sb.SetNumberOfLabels(len(id2label))
-        except Exception:
-            pass
-        # Note: If your environment's scalar bar cannot directly display category names,
-        # you can disable colorbar and use on-screen text legend (draw boxes + text yourself).
-        # Here we provide a simple solution:
-        pl.add_text("  |  ".join(id2label), position="lower_edge", font_size=10, color="black")
+    # Categorical legend like three_d_plot: circle + label per region
+    if show_legend and id2label:
+        unknown_color = "#808080"
+        hex_list = [regions_colors.get(n, unknown_color) for n in id2label]
+        legend_entries = list(zip(id2label, hex_list))
+        pl.add_legend(legend_entries, face="circle", bcolor=None, loc=legend_loc)
 
-    pl.show()
-    return pl
+    if filename:
+        pl.screenshot(filename)
+        pl.close()
+        return pl
+
+    return pl.show(return_cpos=True, jupyter_backend=jupyter_backend)

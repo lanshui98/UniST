@@ -11,10 +11,14 @@ from .slice_generation import (
     slice_stack,
     plot_slice_stack,
 )
+from .point_cloud import construct_pc
+from .three_d_plot import three_d_plot
 
 __all__ = [
     'slice_points_plane',
     'generate_slice_origins',
     'slice_stack',
     'plot_slice_stack',
+    'construct_pc',
+    'three_d_plot',
 ]

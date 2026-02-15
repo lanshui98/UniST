@@ -17,6 +17,27 @@ except ImportError:
     from typing_extensions import Literal
 
 
+def _legend_loc_to_xy(loc, size, border=0.05):
+    """Convert legend_loc (str or tuple) to (x, y) for SetPosition. Mirrors PyVista map_loc_to_pos."""
+    if isinstance(loc, (tuple, list)) and len(loc) >= 2:
+        return float(loc[0]), float(loc[1])
+    loc = str(loc).lower()
+    w, h = size[0], size[1]
+    if "right" in loc:
+        x = 1 - w - border
+    elif "left" in loc:
+        x = border
+    else:
+        x = 0.5 - w / 2
+    if "upper" in loc:
+        y = 1 - h - border
+    elif "lower" in loc:
+        y = border
+    else:
+        y = 0.5 - h / 2
+    return x, y
+
+
 def three_d_plot(
     model: Union[PolyData, UnstructuredGrid, MultiBlock],
     key: Optional[Union[str, list]] = None,
@@ -27,14 +48,14 @@ def three_d_plot(
     background: str = "white",
     cpo: Union[str, list] = "iso",
     colormap: Optional[Union[str, list]] = None,
-    clim: Optional[Union[tuple, list]] = None,
     ambient: float = 0.2,
     opacity: Union[float, np.ndarray, list] = 1.0,
     model_style: Literal["points", "surface", "wireframe"] = "surface",
     model_size: float = 3.0,
     show_legend: bool = True,
     legend_loc: Union[str, tuple] = "lower right",
-    legend_size: tuple = (0.18, 0.25),
+    legend_size: tuple = (0.1, 0.4),
+    legend_kwargs: Optional[Dict[str, Any]] = None,
     show_axes: bool = False,
     text: Optional[str] = None,
     text_kwargs: Optional[Dict[str, Any]] = None,
@@ -70,8 +91,6 @@ def three_d_plot(
         Camera position: "iso", "xy", "xz", "yz", or [position, focal_point, view_up].
     colormap : str or list, optional
         Matplotlib colormap name (e.g. "hot_r"). If None, use point_data[key_rgba] for coloring.
-    clim : tuple, optional
-        (min, max) for scalar range.
     ambient : float
         Ambient light (0–1).
     opacity : float
@@ -85,8 +104,10 @@ def three_d_plot(
     legend_loc : str or tuple, default="lower right"
         Legend position. String: "lower right", "upper left", "center right", etc.
         Tuple (x, y): custom normalized position 0-1, e.g. (0.82, 0.35) for right-side vertical center.
-    legend_size : tuple, default=(0.18, 0.25)
-        Legend box size (width, height) in normalized 0-1.
+    legend_size : tuple, default=(0.1, 0.4)
+        Legend box size (width, height) in normalized 0-1; narrow bar like spateo.
+    legend_kwargs : dict, optional
+        Passed to legend logic; overrides legend_loc/legend_size when provided.
     show_axes : bool
         Show axes widget.
     text : str, optional
@@ -98,6 +119,12 @@ def three_d_plot(
     framerate : int, default=24
         Frames per second for .mp4/.gif.
     """
+    _legend_loc = legend_loc
+    _legend_size = legend_size
+    if legend_kwargs:
+        _legend_loc = legend_kwargs.get("legend_loc", _legend_loc)
+        _legend_size = legend_kwargs.get("legend_size", _legend_size)
+
     if key is None:
         if hasattr(model, "array_names") and model.array_names:
             key = model.array_names[0]
@@ -128,7 +155,7 @@ def three_d_plot(
     )
     plotter.background_color = background
 
-    def _add_one(_model, _key, _cmap, _clim, _style, _size, _ambient, _opacity):
+    def _add_one(_model, _key, _cmap, _style, _size, _ambient, _opacity):
         render_spheres = _style == "points"
         render_tubes = _style == "wireframe"
         smooth = _style == "surface" or _style == "points"
@@ -154,25 +181,24 @@ def three_d_plot(
             kwargs["scalars"] = arr_name
             if _cmap and _cmap in list(mpl.colormaps()):
                 kwargs["cmap"] = _cmap
-                kwargs["clim"] = _clim
             elif _cmap and isinstance(_cmap, str):
                 kwargs["color"] = _cmap
         plotter.add_mesh(_model, **kwargs)
 
     if isinstance(model, (MultiBlock, list)):
-        keys = key if isinstance(key, list) else [key] * len(model)
-        cmaps = colormap if isinstance(colormap, list) else [colormap] * len(model)
-        clims = clim if isinstance(clim, list) else [clim] * len(model)
-        for m, k, cm, cl in zip(model, keys, cmaps, clims):
-            _add_one(m, k, cm, cl, model_style, model_size, ambient, opacity)
+        n_models = len(model)
+        keys = key if isinstance(key, list) else [key] * n_models
+        cmaps = colormap if isinstance(colormap, list) else [colormap] * n_models
+        for m, k, cm in zip(model, keys, cmaps):
+            _add_one(m, k, cm, model_style, model_size, ambient, opacity)
     else:
-        _add_one(model, key, colormap, clim, model_style, model_size, ambient, opacity)
+        _add_one(model, key, colormap, model_style, model_size, ambient, opacity)
 
     plotter.camera_position = cpo
 
     if show_legend:
         if colormap is None and hasattr(model, "point_data"):
-            # Categorical legend from key_rgba
+            # Categorical legend from key_rgba (spateo add_str_legend style)
             m = model[0] if isinstance(model, (MultiBlock, list)) else model
             rk = f"{key}_rgba"
             if rk in m.point_data and key in m.point_data:
@@ -184,18 +210,35 @@ def three_d_plot(
                     if len(uniq) <= 20:
                         hex_colors = [mpl.colors.to_hex(rgba[np.where(lbls == u)[0][0]]) for u in uniq]
                         legend_entries = list(zip(uniq.astype(str).tolist(), hex_colors))
-                        if isinstance(legend_loc, (tuple, list)) and len(legend_loc) >= 2:
-                            leg = plotter.add_legend(
-                                legend_entries, face="circle", bcolor=None, loc=None, size=legend_size
-                            )
-                            leg.SetPosition(legend_loc[0], legend_loc[1])
-                            leg.SetPosition2(legend_size[0], legend_size[1])
-                        else:
-                            plotter.add_legend(
-                                legend_entries, face="circle", bcolor=None, loc=legend_loc, size=legend_size
-                            )
+                        legend_num = len(legend_entries)
+                        sz = _legend_size
+                        if sz is None:
+                            sz = (0.1 + 0.01 * legend_num, 0.1 + 0.012 * legend_num)
+                        elif isinstance(sz, (int, float)):
+                            sz = (sz, sz)
+                        leg = plotter.add_legend(
+                            legend_entries, face="circle", bcolor=None, loc=None, size=sz
+                        )
+                        x, y = _legend_loc_to_xy(_legend_loc, sz)
+                        leg.SetPosition(x, y)
+                        leg.SetPosition2(sz[0], sz[1])
         else:
-            plotter.add_scalar_bar(title=key if isinstance(key, str) else "scalars", vertical=True)
+            sb_kw = dict(title="", vertical=True)
+            sz_sb = _legend_size
+            if sz_sb is None:
+                sz_sb = (0.1, 0.4)
+            elif isinstance(sz_sb, (int, float)):
+                sz_sb = (sz_sb, sz_sb)
+            sb_kw["width"] = sz_sb[0]
+            sb_kw["height"] = sz_sb[1]
+            if isinstance(_legend_loc, (tuple, list)) and len(_legend_loc) >= 2:
+                sb_kw["position_x"] = _legend_loc[0]
+                sb_kw["position_y"] = _legend_loc[1]
+            else:
+                x, y = _legend_loc_to_xy(_legend_loc, sz_sb)
+                sb_kw["position_x"] = x
+                sb_kw["position_y"] = y
+            plotter.add_scalar_bar(**sb_kw)
 
     if show_axes:
         plotter.add_axes()

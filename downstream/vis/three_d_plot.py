@@ -4,7 +4,7 @@
 API compatible with spateo's st.pl.three_d_plot for use with construct_pc.
 """
 
-from typing import Optional, Union
+from typing import Optional, Union, Dict, Any
 
 import numpy as np
 import pyvista as pv
@@ -33,8 +33,13 @@ def three_d_plot(
     model_style: Literal["points", "surface", "wireframe"] = "surface",
     model_size: float = 3.0,
     show_legend: bool = True,
-    legend_loc: str = "lower right",
+    legend_loc: Union[str, tuple] = "lower right",
+    legend_size: tuple = (0.18, 0.25),
     show_axes: bool = False,
+    text: Optional[str] = None,
+    text_kwargs: Optional[Dict[str, Any]] = None,
+    view_up: tuple = (0.5, 0.5, 1),
+    framerate: int = 24,
 ):
     """
     Visualize 3D model (point cloud or mesh) with PyVista (spateo-style API).
@@ -77,10 +82,21 @@ def three_d_plot(
         Point size when model_style="points"; line width for wireframe.
     show_legend : bool
         Show scalar bar (continuous) or legend (categorical).
-    legend_loc : str, default="lower right"
-        Legend position: "lower right", "upper left", "center right", etc.
+    legend_loc : str or tuple, default="lower right"
+        Legend position. String: "lower right", "upper left", "center right", etc.
+        Tuple (x, y): custom normalized position 0-1, e.g. (0.82, 0.35) for right-side vertical center.
+    legend_size : tuple, default=(0.18, 0.25)
+        Legend box size (width, height) in normalized 0-1.
     show_axes : bool
         Show axes widget.
+    text : str, optional
+        Text to overlay on the plot.
+    text_kwargs : dict, optional
+        Passed to plotter.add_text: font_size, font_family, color (or font_color), position (text_loc).
+    view_up : tuple, default=(0.5, 0.5, 1)
+        Normal to orbital plane for .mp4/.gif generation.
+    framerate : int, default=24
+        Frames per second for .mp4/.gif.
     """
     if key is None:
         if hasattr(model, "array_names") and model.array_names:
@@ -168,12 +184,31 @@ def three_d_plot(
                     if len(uniq) <= 20:
                         hex_colors = [mpl.colors.to_hex(rgba[np.where(lbls == u)[0][0]]) for u in uniq]
                         legend_entries = list(zip(uniq.astype(str).tolist(), hex_colors))
-                        plotter.add_legend(legend_entries, face="circle", bcolor=None, loc=legend_loc)
+                        if isinstance(legend_loc, (tuple, list)) and len(legend_loc) >= 2:
+                            leg = plotter.add_legend(
+                                legend_entries, face="circle", bcolor=None, loc=None, size=legend_size
+                            )
+                            leg.SetPosition(legend_loc[0], legend_loc[1])
+                            leg.SetPosition2(legend_size[0], legend_size[1])
+                        else:
+                            plotter.add_legend(
+                                legend_entries, face="circle", bcolor=None, loc=legend_loc, size=legend_size
+                            )
         else:
             plotter.add_scalar_bar(title=key if isinstance(key, str) else "scalars", vertical=True)
 
     if show_axes:
         plotter.add_axes()
+
+    if text is not None:
+        tk = text_kwargs or {}
+        plotter.add_text(
+            text=text,
+            font=tk.get("font_family", tk.get("font", "arial")),
+            font_size=tk.get("font_size", 12),
+            color=tk.get("color", tk.get("font_color", "black")),
+            position=tk.get("position", tk.get("text_loc", "upper_left")),
+        )
 
     if filename:
         ext = filename.rsplit(".", 1)[-1].lower()
@@ -181,6 +216,14 @@ def three_d_plot(
             plotter.screenshot(filename)
         elif ext in ("svg", "eps", "ps", "pdf"):
             plotter.save_graphic(filename, raster=True, painter=True)
+        elif ext == "gif":
+            path = plotter.generate_orbital_path(factor=2.0, shift=0, viewup=view_up, n_points=20)
+            plotter.open_gif(filename)
+            plotter.orbit_on_path(path, write_frames=True, viewup=view_up, step=0.1)
+        elif ext == "mp4":
+            path = plotter.generate_orbital_path(factor=2.0, shift=0, viewup=view_up, n_points=20)
+            plotter.open_movie(filename, framerate=framerate, quality=5)
+            plotter.orbit_on_path(path, write_frames=True, viewup=view_up, step=0.1)
         plotter.close()
         return
 

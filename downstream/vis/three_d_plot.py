@@ -33,6 +33,7 @@ def three_d_plot(
     model_style: Literal["points", "surface", "wireframe"] = "surface",
     model_size: float = 3.0,
     show_legend: bool = True,
+    legend_loc: str = "lower right",
     show_axes: bool = False,
 ):
     """
@@ -76,6 +77,8 @@ def three_d_plot(
         Point size when model_style="points"; line width for wireframe.
     show_legend : bool
         Show scalar bar (continuous) or legend (categorical).
+    legend_loc : str, default="lower right"
+        Legend position: "lower right", "upper left", "center right", etc.
     show_axes : bool
         Show axes widget.
     """
@@ -165,7 +168,7 @@ def three_d_plot(
                     if len(uniq) <= 20:
                         hex_colors = [mpl.colors.to_hex(rgba[np.where(lbls == u)[0][0]]) for u in uniq]
                         legend_entries = list(zip(uniq.astype(str).tolist(), hex_colors))
-                        plotter.add_legend(legend_entries, face="circle", bcolor=None, loc="lower right")
+                        plotter.add_legend(legend_entries, face="circle", bcolor=None, loc=legend_loc)
         else:
             plotter.add_scalar_bar(title=key if isinstance(key, str) else "scalars", vertical=True)
 

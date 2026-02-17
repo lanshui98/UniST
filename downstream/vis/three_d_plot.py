@@ -91,7 +91,8 @@ def three_d_plot(
     cpo : str or list
         Camera position: "iso", "xy", "xz", "yz", or [position, focal_point, view_up].
     colormap : str or list, optional
-        Matplotlib colormap name (e.g. "hot_r"). If None, use point_data[key_rgba] for coloring.
+        Matplotlib colormap name (e.g. "hot_r"), or list of colors for discrete values
+        (e.g. ``["white", "gray"]``: 0->first, 1->second). If None, use point_data[key_rgba].
     ambient : float
         Ambient light (0–1).
     opacity : float
@@ -187,6 +188,12 @@ def three_d_plot(
             kwargs["scalars"] = arr_name
             if _cmap and _cmap in list(mpl.colormaps()):
                 kwargs["cmap"] = _cmap
+            elif _cmap and isinstance(_cmap, (list, tuple)) and len(_cmap) >= 2:
+                # Discrete colors: [color_for_0, color_for_1, ...], scalar 0->first, 1->second
+                kwargs["cmap"] = mpl.colors.ListedColormap(
+                    [mpl.colors.to_hex(c) if isinstance(c, str) else c for c in _cmap]
+                )
+                kwargs["clim"] = (0, len(_cmap) - 1)
             elif _cmap and isinstance(_cmap, str):
                 kwargs["color"] = _cmap
         plotter.add_mesh(_model, **kwargs)

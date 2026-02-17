@@ -7,7 +7,7 @@ Grid-based voxelization to PyVista ImageData (VTI).
 Voxel size is set by grid_shape and physical ranges: dx = (x_max - x_min) / nx, etc.
 """
 
-from typing import Optional, Tuple, Union
+from typing import Any, Optional, Tuple, Union
 
 import numpy as np
 import pyvista as pv
@@ -22,6 +22,8 @@ def points_to_imagedata(
     z_range: Optional[Tuple[float, float]] = None,
     point_data: Optional[dict] = None,
     fill_mode: str = "last",
+    label_to_value: Optional[dict] = None,
+    empty_voxel_value: Optional[Union[int, float]] = None,
 ) -> ImageData:
     """
     Rasterize points into a 3D grid (ImageData) with explicit voxel size.
@@ -47,6 +49,12 @@ def points_to_imagedata(
     fill_mode : str, default "last"
         When several points fall in the same voxel: "last" (overwrite),
         "mode" (categorical: most frequent), "mean" (numeric mean).
+    label_to_value : dict, optional
+        Map factor labels to numbers per key. E.g. ``{"pred_label": {"Tumor": 1, "Stroma": 0}}``.
+        Labels not in the dict get 0. So you get 1=Tumor, 0=background/other in the grid.
+    empty_voxel_value : int or float, optional
+        Value for voxels with no points. If None, use 0 (int) or NaN (float).
+        E.g. 0 so that 0=empty, 1=Tumor.
 
     Returns
     -------
@@ -71,6 +79,13 @@ def points_to_imagedata(
         pts = df[["x", "y", "z"]].to_numpy()
         point_data = {"pred_label": label_array}  # or use a PolyData
         grid = points_to_imagedata(pts, grid_shape=(100, 100, 50), point_data=point_data)
+
+    Tumor = 1, others = 0:
+        grid = points_to_imagedata(
+            pc_model, grid_shape=(532, 400, 34),
+            x_range=(6000, 14000), y_range=(-1000, 5000), z_range=(57.97, 1043.48),
+            label_to_value={"pred_label": {"Tumor": 1}}, empty_voxel_value=0,
+        )
     """
     if isinstance(points, PolyData):
         pts = np.asarray(points.points, dtype=float)
@@ -123,7 +138,14 @@ def points_to_imagedata(
             else:
                 continue
 
-        if np.issubdtype(arr.dtype, np.floating):
+        # Map factor labels to numbers if requested (e.g. {"Tumor": 1})
+        if label_to_value is not None and key in label_to_value:
+            mapping = label_to_value[key]
+            arr = np.array([mapping.get(x, 0) for x in arr], dtype=np.float64)
+
+        if empty_voxel_value is not None:
+            volume = np.full((nx, ny, nz), empty_voxel_value, dtype=np.float64)
+        elif np.issubdtype(arr.dtype, np.floating):
             volume = np.full((nx, ny, nz), np.nan, dtype=np.float64)
         else:
             volume = np.zeros((nx, ny, nz), dtype=arr.dtype)

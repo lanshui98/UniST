@@ -13,7 +13,7 @@ from .slice_generation import (
 )
 from .point_cloud import construct_pc
 from .three_d_plot import three_d_plot
-from .voxelize import voxelize_pc
+from .voxelize import expression_to_imagedata, points_to_imagedata
 
 __all__ = [
     'slice_points_plane',
@@ -22,5 +22,6 @@ __all__ = [
     'plot_slice_stack',
     'construct_pc',
     'three_d_plot',
-    'voxelize_pc',
+    'points_to_imagedata',
+    'expression_to_imagedata',
 ]

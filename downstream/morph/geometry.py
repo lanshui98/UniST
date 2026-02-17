@@ -2,34 +2,69 @@
 Geometric measurements for voxel data.
 
 This module provides functions to calculate volume and surface area
-for binary voxel data (3D arrays or vtkImageData).
+for binary voxel data (3D arrays, vtkImageData, or PyVista ImageData).
+
+How to use (with vis + morph pipeline):
+
+    from downstream.vis import points_to_imagedata
+    from downstream.morph import closing, calculate_volume, calculate_surface_area
+
+    grid = points_to_imagedata(pc, grid_shape=(532, 400, 34), ...)
+    closed = closing(grid, foreground_value=1, background_value=0, kernel_size=(1, 1, 2))
+
+    # Foreground = 1 (tumor). Spacing is taken from the grid.
+    vol = calculate_volume(closed, foreground_value=1)
+    area = calculate_surface_area(closed, foreground_value=1)
+    vol, area = calculate_volume_and_surface_area(closed, foreground_value=1)
 """
 
 import numpy as np
 import vtk
 from typing import Union, Tuple, Optional
 
+try:
+    import pyvista as pv
+except ImportError:
+    pv = None
 
-def _as_numpy_array(data: Union[np.ndarray, vtk.vtkImageData], 
-                    foreground_value: int = 1) -> Tuple[np.ndarray, Tuple[float, float, float]]:
+
+def _as_numpy_array(
+    data: Union[np.ndarray, "vtk.vtkImageData"],
+    foreground_value: int = 1,
+) -> Tuple[np.ndarray, Tuple[float, float, float]]:
     """
     Convert input to numpy array and get spacing.
-    
+
+    Accepts numpy 3D array, vtk.vtkImageData, or PyVista ImageData (e.g. from
+    vis.points_to_imagedata or morph.closing).
+
     Parameters
     ----------
-    data : np.ndarray or vtk.vtkImageData
+    data : np.ndarray, vtk.vtkImageData, or pyvista.ImageData
         Input voxel data
     foreground_value : int, default=1
         Value representing foreground voxels
-    
+
     Returns
     -------
     tuple
         (binary_array, spacing)
-        - binary_array: Binary numpy array (True for foreground, False for background)
-          Array shape is (z, y, x) to match VTK convention
-        - spacing: Tuple of (spacing_x, spacing_y, spacing_z) in physical units
+        - binary_array: (z, y, x), True for foreground
+        - spacing: (spacing_x, spacing_y, spacing_z)
     """
+    # PyVista ImageData (has point_data, dimensions, spacing)
+    if pv is not None and hasattr(data, "point_data") and hasattr(data, "dimensions"):
+        dims = data.dimensions  # (nx+1, ny+1, nz+1)
+        name = data.point_data.active_scalars_name
+        if name is None and len(data.point_data.keys()) > 0:
+            name = data.point_data.keys()[0]
+        if name is None:
+            raise ValueError("PyVista ImageData has no point scalar data")
+        arr = np.asarray(data.point_data[name])
+        arr = np.reshape(arr, (dims[0], dims[1], dims[2]), order="F").transpose(2, 1, 0)  # (z,y,x)
+        binary = arr == foreground_value
+        spacing = tuple(float(x) for x in data.spacing)
+        return binary, spacing
     if isinstance(data, vtk.vtkImageData):
         # Extract numpy array from VTK
         dims = data.GetDimensions()  # Returns (x, y, z)

@@ -8,6 +8,18 @@ in 3D spatial transcriptomics data.
 
 import vtk
 
+try:
+    import pyvista as pv
+except ImportError:
+    pv = None
+
+
+def _wrap_output(vtk_output):
+    """Return PyVista wrapper when available so result has .save() etc."""
+    if pv is not None:
+        return pv.wrap(vtk_output)
+    return vtk_output
+
 
 def dilation(
     image_data,
@@ -60,8 +72,7 @@ def dilation(
     dilate.SetErodeValue(erode_value)
     dilate.SetKernelSize(kernel_size[0], kernel_size[1], kernel_size[2])
     dilate.Update()
-    
-    return dilate.GetOutput()
+    return _wrap_output(dilate.GetOutput())
 
 
 def erosion(
@@ -111,8 +122,7 @@ def erosion(
     erode.SetErodeValue(erode_value)
     erode.SetKernelSize(kernel_size[0], kernel_size[1], kernel_size[2])
     erode.Update()
-    
-    return erode.GetOutput()
+    return _wrap_output(erode.GetOutput())
 
 
 def closing(
@@ -171,7 +181,7 @@ def closing(
         kernel_size=kernel_size
     )
     
-    return closed
+    return _wrap_output(closed)
 
 
 def opening(
@@ -236,4 +246,4 @@ def opening(
         kernel_size=kernel_size
     )
     
-    return opened
+    return _wrap_output(opened)

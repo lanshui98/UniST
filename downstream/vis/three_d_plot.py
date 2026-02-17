@@ -55,6 +55,7 @@ def three_d_plot(
     show_legend: bool = True,
     legend_loc: Union[str, tuple] = "lower right",
     legend_size: tuple = (0.1, 0.4),
+    legend_font_size: Optional[float] = None,
     legend_kwargs: Optional[Dict[str, Any]] = None,
     show_axes: bool = False,
     text: Optional[str] = None,
@@ -105,9 +106,12 @@ def three_d_plot(
         Legend position. String: "lower right", "upper left", "center right", etc.
         Tuple (x, y): custom normalized position 0-1, e.g. (0.82, 0.35) for right-side vertical center.
     legend_size : tuple, default=(0.1, 0.4)
-        Legend box size (width, height) in normalized 0-1; narrow bar like spateo.
+        Legend box size (width, height) in normalized 0-1. For categorical (circle+text)
+        legend, larger values = bigger legend box and symbols.
+    legend_font_size : float, optional
+        Font size for categorical legend text. If None, VTK default is used.
     legend_kwargs : dict, optional
-        Passed to legend logic; overrides legend_loc/legend_size when provided.
+        Passed to legend logic; can override legend_loc, legend_size, legend_font_size.
     show_axes : bool
         Show axes widget.
     text : str, optional
@@ -121,9 +125,11 @@ def three_d_plot(
     """
     _legend_loc = legend_loc
     _legend_size = legend_size
+    _legend_font_size = legend_font_size
     if legend_kwargs:
         _legend_loc = legend_kwargs.get("legend_loc", _legend_loc)
         _legend_size = legend_kwargs.get("legend_size", _legend_size)
+        _legend_font_size = legend_kwargs.get("legend_font_size", _legend_font_size)
 
     if key is None:
         if hasattr(model, "array_names") and model.array_names:
@@ -222,6 +228,14 @@ def three_d_plot(
                         x, y = _legend_loc_to_xy(_legend_loc, sz)
                         leg.SetPosition(x, y)
                         leg.SetPosition2(sz[0], sz[1])
+                        if _legend_font_size is not None:
+                            try:
+                                if hasattr(leg, "SetFontSize"):
+                                    leg.SetFontSize(int(_legend_font_size))
+                                elif hasattr(leg, "GetTextProperty"):
+                                    leg.GetTextProperty().SetFontSize(int(_legend_font_size))
+                            except Exception:
+                                pass
         else:
             sb_kw = dict(title="", vertical=True)
             sz_sb = _legend_size

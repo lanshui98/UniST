@@ -13,6 +13,7 @@ from .slice_generation import (
 )
 from .point_cloud import construct_pc
 from .three_d_plot import three_d_plot
+from .voxelize import voxelize_pc
 
 __all__ = [
     'slice_points_plane',
@@ -21,4 +22,5 @@ __all__ = [
     'plot_slice_stack',
     'construct_pc',
     'three_d_plot',
+    'voxelize_pc',
 ]

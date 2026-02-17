@@ -6,7 +6,9 @@ These operations are particularly useful for bridging gaps along the Z-axis
 in 3D spatial transcriptomics data.
 """
 
+import numpy as np
 import vtk
+from vtk.util import numpy_support
 
 try:
     import pyvista as pv
@@ -19,6 +21,22 @@ def _wrap_output(vtk_output):
     if pv is not None:
         return pv.wrap(vtk_output)
     return vtk_output
+
+
+def _remap_nonzero_to(vtk_image, value):
+    """In-place: set all non-zero scalars to value (for point and cell data)."""
+    if value == 1:
+        return
+    for data in (vtk_image.GetPointData(), vtk_image.GetCellData()):
+        s = data.GetScalars()
+        if s is None:
+            continue
+        arr = numpy_support.vtk_to_numpy(s)
+        out = np.where(arr != 0, value, 0)
+        out = out.astype(np.float64 if isinstance(value, float) else np.int32)
+        new_s = numpy_support.numpy_to_vtk(out.ravel(), deep=True)
+        new_s.SetName(s.GetName() if s.GetName() else "")
+        data.SetScalars(new_s)
 
 
 def dilation(
@@ -247,3 +265,115 @@ def opening(
     )
     
     return _wrap_output(opened)
+
+
+def periphery_mask(
+    image_data,
+    foreground_value=1,
+    background_value=0,
+    kernel_size=(5, 5, 3),
+    output_value=1,
+):
+    """
+    Compute a mask of the periphery (outer ring) around the foreground region.
+
+    Performs dilation then subtracts the original volume, so the result is
+    output_value where the dilated region extends beyond the original foreground (0 elsewhere).
+    Useful for defining a "shell" or invasive margin around a tumor mask.
+
+    Parameters
+    ----------
+    image_data : vtk.vtkImageData or pyvista.ImageData
+        Input volume with foreground (e.g. tumor) and background.
+    foreground_value : int, default=1
+        Voxel value that represents the foreground to dilate (e.g. tumor = 1 or 4).
+    background_value : int, default=0
+        Background value for the dilation step.
+    kernel_size : tuple of int, default=(5, 5, 3)
+        Dilation kernel (kernel_x, kernel_y, kernel_z). Larger values give a thicker ring.
+    output_value : int or float, default=1
+        Value assigned to the periphery voxels (non-zero in the ring). Use e.g. 2 or 255 for a distinct label.
+
+    Returns
+    -------
+    pyvista.ImageData or vtk.vtkImageData
+        Volume the same size as input; output_value in the periphery ring, 0 elsewhere.
+        Has .save() when PyVista is available.
+
+    Example
+    -------
+    periphery = periphery_mask(closed_volume_data, foreground_value=4, background_value=0, kernel_size=(5, 5, 3), output_value=2)
+    periphery.save("periphery_mask.vti")
+    """
+    dilate = vtk.vtkImageDilateErode3D()
+    dilate.SetInputData(image_data)
+    dilate.SetDilateValue(foreground_value)
+    dilate.SetErodeValue(background_value)
+    dilate.SetKernelSize(kernel_size[0], kernel_size[1], kernel_size[2])
+    dilate.Update()
+    dilated_vtk = dilate.GetOutput()
+
+    subtract = vtk.vtkImageMathematics()
+    subtract.SetOperationToSubtract()
+    subtract.SetInput1Data(dilated_vtk)
+    subtract.SetInput2Data(image_data)
+    subtract.Update()
+    result = subtract.GetOutput()
+    _remap_nonzero_to(result, output_value)
+    return _wrap_output(result)
+
+
+def boundary_mask(
+    image_data,
+    foreground_value=1,
+    background_value=0,
+    kernel_size=(3, 3, 3),
+    output_value=1,
+):
+    """
+    Compute a mask of the boundary (surface shell) of the foreground region.
+
+    Performs a small erosion then subtracts the eroded volume from the original,
+    so the result is output_value on the boundary voxels (thickness controlled by kernel).
+    Useful for defining the tumor boundary or invasive front.
+
+    Parameters
+    ----------
+    image_data : vtk.vtkImageData or pyvista.ImageData
+        Input volume (e.g. closed tumor mask) with foreground and background.
+    foreground_value : int, default=1
+        Voxel value that represents the foreground to erode (e.g. tumor = 1 or 4).
+    background_value : int, default=0
+        Background value for the erosion step.
+    kernel_size : tuple of int, default=(3, 3, 3)
+        Erosion kernel (kernel_x, kernel_y, kernel_z). Size controls boundary thickness.
+    output_value : int or float, default=1
+        Value assigned to the boundary voxels (non-zero on the shell). Use e.g. 2 or 255 for a distinct label.
+
+    Returns
+    -------
+    pyvista.ImageData or vtk.vtkImageData
+        Volume the same size as input; output_value on the boundary shell, 0 elsewhere.
+        Has .save() when PyVista is available.
+
+    Example
+    -------
+    boundary = boundary_mask(closed_volume_data, foreground_value=4, background_value=0, kernel_size=(3, 3, 3), output_value=2)
+    boundary.save("boundary_mask.vti")
+    """
+    erode = vtk.vtkImageDilateErode3D()
+    erode.SetInputData(image_data)
+    erode.SetDilateValue(background_value)
+    erode.SetErodeValue(foreground_value)
+    erode.SetKernelSize(kernel_size[0], kernel_size[1], kernel_size[2])
+    erode.Update()
+    eroded_vtk = erode.GetOutput()
+
+    subtract = vtk.vtkImageMathematics()
+    subtract.SetOperationToSubtract()
+    subtract.SetInput1Data(image_data)
+    subtract.SetInput2Data(eroded_vtk)
+    subtract.Update()
+    result = subtract.GetOutput()
+    _remap_nonzero_to(result, output_value)
+    return _wrap_output(result)

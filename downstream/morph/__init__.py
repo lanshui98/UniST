@@ -8,7 +8,7 @@ along the Z-axis in 3D spatial transcriptomics data.
 It also provides geometric measurements (volume and surface area) for voxel data.
 """
 
-from .operations import dilation, erosion, closing, opening
+from .operations import dilation, erosion, closing, opening, periphery_mask, boundary_mask
 from .geometry import (
     calculate_volume,
     calculate_surface_area,
@@ -20,6 +20,8 @@ __all__ = [
     'erosion',
     'closing',
     'opening',
+    'periphery_mask',
+    'boundary_mask',
     'calculate_volume',
     'calculate_surface_area',
     'calculate_volume_and_surface_area',

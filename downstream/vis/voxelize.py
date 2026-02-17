@@ -59,7 +59,8 @@ def points_to_imagedata(
     Returns
     -------
     pyvista.ImageData
-        Grid with .origin, .spacing, and cell_data for each key (one value per voxel).
+        Grid with .origin, .spacing; each key in both .cell_data and .point_data
+        (point_data is filled by copying cell values to corners, no interpolation, keeps 0/1 for ParaView volume rendering).
         Can be saved as .vti or plotted with three_d_plot(..., key="...").
 
     Examples
@@ -171,7 +172,24 @@ def points_to_imagedata(
 
         grid.cell_data[key] = volume.flatten(order="F")
 
+    # Copy to point_data (cell value to corner, no averaging) so ParaView volume rendering works and values stay 0/1
+    _cell_data_to_point_data(grid, nx, ny, nz)
+
     return grid
+
+
+def _cell_data_to_point_data(grid: ImageData, nx: int, ny: int, nz: int) -> None:
+    """Copy each cell_data array to point_data by assigning the cell value to its corner (no interpolation, preserves 0/1)."""
+    for key in list(grid.cell_data.keys()):
+        cell_arr = np.asarray(grid.cell_data[key])
+        if cell_arr.size != nx * ny * nz:
+            continue
+        vol = cell_arr.reshape((nx, ny, nz), order="F")
+        ii = np.minimum(np.arange(nx + 1, dtype=np.int64)[:, None, None], nx - 1)
+        jj = np.minimum(np.arange(ny + 1, dtype=np.int64)[None, :, None], ny - 1)
+        kk = np.minimum(np.arange(nz + 1, dtype=np.int64)[None, None, :], nz - 1)
+        point_vol = vol[ii, jj, kk]
+        grid.point_data[key] = point_vol.flatten(order="F")
 
 
 def expression_to_imagedata(
@@ -283,4 +301,5 @@ def expression_to_imagedata(
         np.divide(sum_, count, out=volume, where=count > 0)
         grid.cell_data[key] = volume.flatten(order="F")
 
+    _cell_data_to_point_data(grid, nx, ny, nz)
     return grid

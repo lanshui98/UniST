@@ -198,6 +198,7 @@ def three_d_plot(
         lighting="light_kit",
     )
     plotter.background_color = background
+    plotter.window_size = window_size  # enforce size (avoids fullscreen on some backends)
 
     def _add_one(_model, _key, _cmap, _style, _size, _ambient, _opacity):
         render_spheres = _style == "points"
@@ -317,14 +318,37 @@ def three_d_plot(
             plotter.screenshot(filename)
         elif ext in ("svg", "eps", "ps", "pdf"):
             plotter.save_graphic(filename, raster=True, painter=True)
-        elif ext == "gif":
+        elif ext in ("gif", "mp4"):
+            # Manual orbit + frame capture + imageio (avoids TiffWriter.write(fps) and open_gif/open_movie backend issues)
             path = plotter.generate_orbital_path(factor=2.0, shift=0, viewup=view_up, n_points=20)
-            plotter.open_gif(filename)
-            plotter.orbit_on_path(path, write_frames=True, viewup=view_up, step=0.1)
-        elif ext == "mp4":
-            path = plotter.generate_orbital_path(factor=2.0, shift=0, viewup=view_up, n_points=20)
-            plotter.open_movie(filename, framerate=framerate, quality=5)
-            plotter.orbit_on_path(path, write_frames=True, viewup=view_up, step=0.1)
+            focal = plotter.camera_position[1]
+            frames = []
+            for i in range(path.n_points):
+                plotter.camera_position = (path.points[i], focal, view_up)
+                plotter.render()
+                # Force window_size so output is not fullscreen / arbitrary size
+                frames.append(plotter.screenshot(return_img=True, window_size=window_size))
+            try:
+                import imageio
+                if ext == "gif":
+                    imageio.mimwrite(
+                        filename,
+                        frames,
+                        format="GIF",
+                        duration=1.0 / framerate,
+                        loop=0,
+                    )
+                else:
+                    # Explicit FFMPEG writer so fps is not passed to TiffWriter
+                    writer = imageio.get_writer(filename, format="FFMPEG", fps=framerate)
+                    for frame in frames:
+                        writer.append_data(frame)
+                    writer.close()
+            except Exception as e:
+                plotter.close()
+                raise RuntimeError(
+                    f"Failed to write {ext.upper()} (install imageio and for mp4: pip install imageio[ffmpeg]): {e}"
+                ) from e
         plotter.close()
         return
 

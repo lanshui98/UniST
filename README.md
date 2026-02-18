@@ -2,11 +2,11 @@
 
 <h1 style="margin:0;">UniST</h1>
 
-[Tutorials](https://unist-tutorial.readthedocs.io/en/latest/) - [Overview](https://unist-tutorial.readthedocs.io/en/latest/overview.html)
-
 <img src="whole.gif" width="20%">
 
 </div>
+
+[Tutorials](https://unist-tutorial.readthedocs.io/en/latest/) - [Overview](https://unist-tutorial.readthedocs.io/en/latest/overview.html)
 
 A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 

@@ -2,7 +2,7 @@
 
 A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 
-[Tutorials](https://unist-tutorial.readthedocs.io/en/latest/) --- [Overview](https://unist-tutorial.readthedocs.io/en/latest/overview.html)
+[Tutorials](https://unist-tutorial.readthedocs.io/en/latest/) - [Overview](https://unist-tutorial.readthedocs.io/en/latest/overview.html)
 
 <p align="center">
   <img src="fig.png" width="1000">
@@ -79,4 +79,4 @@ Download the weights from google drive [link](https://drive.google.com/drive/fol
 
 ### Gene imputation
 
-[Tutorial Page](https://unist-tutorial.readthedocs.io/en/latest/gene_imputation.html) --- [Model Details](https://github.com/lanshui98/SUICA_pro)
+[Tutorial Page](https://unist-tutorial.readthedocs.io/en/latest/gene_imputation.html) - [Model Details](https://github.com/lanshui98/SUICA_pro)

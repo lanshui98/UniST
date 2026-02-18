@@ -22,7 +22,7 @@ from .voxel import (
     false_positive_rate,
     false_negative_rate,
 )
-from .evaluation import evaluate_slices, evaluate_volume
+from .evaluation import evaluate_slices, evaluate_volume, evaluate_volume_from_dirs
 from .gene_expression import (
     evaluate_gene_expression_2d,
     evaluate_gene_expression_3d,
@@ -53,6 +53,7 @@ __all__ = [
     # Evaluation functions
     'evaluate_slices',
     'evaluate_volume',
+    'evaluate_volume_from_dirs',
     # Gene expression evaluation
     'evaluate_gene_expression_2d',
     'evaluate_gene_expression_3d',

@@ -95,6 +95,7 @@ def three_d_plot(
     text_kwargs: Optional[Dict[str, Any]] = None,
     view_up: tuple = (0.5, 0.5, 1),
     framerate: int = 24,
+    pad_ratio: float = 0.2,
 ):
     """
     Visualize 3D model (point cloud or mesh) with PyVista (spateo-style API).
@@ -149,13 +150,16 @@ def three_d_plot(
     show_axes : bool
         Show axes widget.
     text : str, optional
-        Text to overlay on the plot.
+        Title or label (default position: top center, ``upper_edge``).
     text_kwargs : dict, optional
-        Passed to plotter.add_text: font_size, font_family, color (or font_color), position (text_loc).
+        Passed to plotter.add_text: font_size, font_family, color (or font_color),
+        position (or text_loc): ``"upper_edge"`` (title), ``"upper_left"``, ``"lower_right"``, etc.
     view_up : tuple, default=(0.5, 0.5, 1)
         Normal to orbital plane for .mp4/.gif generation.
     framerate : int, default=24
         Frames per second for .mp4/.gif.
+    pad_ratio : float, default=0.2
+        For .gif/.mp4 only: padding as fraction of frame height/width (0 = no border).
     """
     _legend_loc = legend_loc
     _legend_size = legend_size
@@ -302,16 +306,6 @@ def three_d_plot(
     if show_axes:
         plotter.add_axes()
 
-    if text is not None:
-        tk = text_kwargs or {}
-        plotter.add_text(
-            text=text,
-            font=tk.get("font_family", tk.get("font", "arial")),
-            font_size=tk.get("font_size", 12),
-            color=tk.get("color", tk.get("font_color", "black")),
-            position=tk.get("position", tk.get("text_loc", "upper_left")),
-        )
-
     if filename:
         ext = filename.rsplit(".", 1)[-1].lower()
         if ext in ("png", "tif", "tiff", "bmp", "jpeg", "jpg"):
@@ -319,15 +313,41 @@ def three_d_plot(
         elif ext in ("svg", "eps", "ps", "pdf"):
             plotter.save_graphic(filename, raster=True, painter=True)
         elif ext in ("gif", "mp4"):
-            # Manual orbit + frame capture + imageio (avoids TiffWriter.write(fps) and open_gif/open_movie backend issues)
             path = plotter.generate_orbital_path(factor=2.0, shift=0, viewup=view_up, n_points=20)
             focal = plotter.camera_position[1]
             frames = []
+
             for i in range(path.n_points):
                 plotter.camera_position = (path.points[i], focal, view_up)
+                plotter.set_scale(1, 1, 1)
                 plotter.render()
-                # Force window_size so output is not fullscreen / arbitrary size
-                frames.append(plotter.screenshot(return_img=True, window_size=window_size))
+                img = plotter.screenshot(return_img=True, window_size=window_size)
+                pad_h, pad_w = 0, 0
+                if pad_ratio > 0:
+                    h, w = img.shape[:2]
+                    pad_h = int(h * pad_ratio)
+                    pad_w = int(w * pad_ratio)
+                    img = np.pad(
+                        img,
+                        ((pad_h, pad_h), (pad_w, pad_w), (0, 0)),
+                        mode="constant",
+                        constant_values=255,
+                    )
+                if text is not None:
+                    from PIL import Image, ImageDraw, ImageFont
+                    pil_img = Image.fromarray(img)
+                    draw = ImageDraw.Draw(pil_img)
+                    tk = text_kwargs or {}
+                    font_size = tk.get("font_size", 24)
+                    try:
+                        font = ImageFont.truetype("Arial.ttf", font_size)
+                    except Exception:
+                        font = ImageFont.load_default()
+                    color = tk.get("color", tk.get("font_color", "black"))
+                    # Place title in top-left margin (in padded area if any)
+                    draw.text((pad_w + 10, pad_h + 10), text, fill=color, font=font)
+                    img = np.array(pil_img)
+                frames.append(img)
             try:
                 import imageio
                 if ext == "gif":
@@ -356,4 +376,5 @@ def three_d_plot(
         return_cpos=True,
         jupyter_backend=jupyter_backend,
         cpos=cpo,
+        window_size=window_size,
     )

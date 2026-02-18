@@ -4,7 +4,7 @@ A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 
 [Tutorials](https://unist-tutorial.readthedocs.io/en/latest/)
 
-![demo](whole.gif)
+<img src="whole.gif" width="20%">
 
 <p align="center">
   <img src="fig.png" width="1000">

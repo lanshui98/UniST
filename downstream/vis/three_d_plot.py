@@ -17,6 +17,39 @@ except ImportError:
     from typing_extensions import Literal
 
 
+def rotate_model(
+    model: Union[PolyData, UnstructuredGrid],
+    angle: Union[list, tuple] = (0, 0, 0),
+    rotate_center: Optional[Union[list, tuple]] = None,
+    inplace: bool = False,
+) -> Union[PolyData, UnstructuredGrid, None]:
+    """
+    Rotate the model around the rotate_center.
+
+    Parameters
+    ----------
+    model : pyvista.PolyData or pyvista.UnstructuredGrid
+        A 3D model (e.g. from construct_pc or ImageData surface).
+    angle : list or tuple, default=(0, 0, 0)
+        Angles in degrees to rotate about the x-, y-, and z-axis. Length 3.
+    rotate_center : list or tuple, optional
+        Rotation center point. If None, uses the center of the model. Length 3.
+    inplace : bool, default=False
+        If True, rotate in-place and return None; otherwise return a rotated copy.
+
+    Returns
+    -------
+    pyvista.PolyData or pyvista.UnstructuredGrid or None
+        The rotated model, or None if inplace=True.
+    """
+    model_r = model.copy() if not inplace else model
+    center = list(model_r.center) if rotate_center is None else list(rotate_center)
+    model_r.rotate_x(angle=angle[0], point=center, inplace=True)
+    model_r.rotate_y(angle=angle[1], point=center, inplace=True)
+    model_r.rotate_z(angle=angle[2], point=center, inplace=True)
+    return model_r if not inplace else None
+
+
 def _legend_loc_to_xy(loc, size, border=0.05):
     """Convert legend_loc (str or tuple) to (x, y) for SetPosition. Mirrors PyVista map_loc_to_pos."""
     if isinstance(loc, (tuple, list)) and len(loc) >= 2:
@@ -140,7 +173,11 @@ def three_d_plot(
         if key is None:
             raise ValueError("key must be provided or model must have point_data arrays.")
 
-    # Resolve jupyter backend
+    # Resolve jupyter backend and off_screen (required for .gif/.mp4)
+    if filename:
+        ext = filename.rsplit(".", 1)[-1].lower()
+        if ext in ("gif", "mp4"):
+            off_screen = True
     if jupyter is False:
         jupyter_backend = "none"
         off_screen_plot = off_screen

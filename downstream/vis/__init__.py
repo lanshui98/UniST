@@ -12,7 +12,7 @@ from .slice_generation import (
     plot_slice_stack,
 )
 from .point_cloud import construct_pc
-from .three_d_plot import three_d_plot
+from .three_d_plot import three_d_plot, rotate_model
 from .voxelize import expression_to_imagedata, points_to_imagedata
 
 __all__ = [
@@ -22,6 +22,7 @@ __all__ = [
     'plot_slice_stack',
     'construct_pc',
     'three_d_plot',
+    'rotate_model',
     'points_to_imagedata',
     'expression_to_imagedata',
 ]

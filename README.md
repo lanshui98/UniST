@@ -1,10 +1,7 @@
-<div style="display:flex; align-items:center; gap:15px;">
-
-<h1 style="margin:0;">UniST</h1>
-
-<img src="whole.gif" width="20%">
-
-</div>
+<h1>
+  UniST
+  <img src="whole.gif" width="160" align="right">
+</h1>
 
 [Tutorials](https://unist-tutorial.readthedocs.io/en/latest/) - [Overview](https://unist-tutorial.readthedocs.io/en/latest/overview.html)
 

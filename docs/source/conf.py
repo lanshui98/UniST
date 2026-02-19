@@ -9,6 +9,12 @@ author = 'Lan Shui'
 release = 'latest'
 version = 'latest'
 
+import os
+import sys
+sys.path.insert(0, os.path.abspath("../.."))
+
+autosummary_generate = True
+
 # -- General configuration
 
 extensions = [
@@ -36,7 +42,6 @@ templates_path = ['_templates']
 
 html_theme = 'sphinx_rtd_theme'
 html_static_path = ['_static']
-html_logo = "_static/unist_logo.png"
 
 # -- Options for EPUB output
 epub_show_urls = 'footnote'

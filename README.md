@@ -3,10 +3,7 @@
   <img src="whole.gif" width="160" align="right">
 </h1>
 
-<!-- badges: start -->
-[Tutorials](https://unist-tutorial.readthedocs.io/en/latest/) - 
-[Overview](https://unist-tutorial.readthedocs.io/en/latest/overview.html)
-<!-- badges: end -->
+### [🌐 Tutorial Website](https://unist-tutorial.readthedocs.io/en/latest/)
 
 A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 

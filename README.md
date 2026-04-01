@@ -84,7 +84,6 @@ Download the weights from google drive [link](https://drive.google.com/drive/fol
 
 [Tutorial Page](https://unist-tutorial.readthedocs.io/en/latest/gene_imputation.html) - [Model Details](https://github.com/lanshui98/SUICA_pro)
 
-## citation
-```
+## Citation
+If you find our work is useful, please cite:
 Shui, L., Liu, Y., Julio, I.C., Clemenceau, J.R., Hoi, X.P., Dai, Y., Lu, W., Min, J., Khan, K., Roemer, B. and Jiang, M., 2026. UniST: A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction. bioRxiv, pp.2026-03.
-```

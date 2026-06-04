@@ -381,3 +381,91 @@ def evaluate_volume(
         boundary_thickness=boundary_thickness,
         boundary_tolerance=boundary_tolerance
     )
+
+
+def evaluate_volume_from_dirs(
+    true_dir: Union[str, Path],
+    pred_dir: Union[str, Path],
+    true_pattern: str,
+    pred_pattern: str,
+    compute_boundary: bool = True,
+    compute_voxel: bool = True,
+    boundary_thickness: int = 1,
+    boundary_tolerance: int = 0,
+    verbose: bool = True,
+) -> Dict[str, float]:
+    """
+    Build two 3D volumes by stacking matched 2D slices from two directories, then evaluate.
+
+    Slices are matched by the same index from the regex capture group; the index order
+    defines the third dimension (e.g. index 0 -> first slice, index 1 -> second slice).
+
+    Parameters
+    ----------
+    true_dir : str or Path
+        Directory containing ground truth slice .tif/.tiff files
+    pred_dir : str or Path
+        Directory containing predicted slice .tif/.tiff files
+    true_pattern : str
+        Regex pattern for ground truth filenames with one capture group for the slice index
+    pred_pattern : str
+        Regex pattern for predicted filenames with one capture group for the slice index
+    compute_boundary : bool, default=True
+        Whether to compute boundary-based metrics
+    compute_voxel : bool, default=True
+        Whether to compute voxel-based metrics
+    boundary_thickness : int, default=1
+        Boundary band thickness
+    boundary_tolerance : int, default=0
+        Boundary matching tolerance
+    verbose : bool, default=True
+        Print progress
+
+    Returns
+    -------
+    dict
+        Metric names -> values (Dice, IoU, HD95, etc.)
+    """
+    true_map = get_file_map(true_dir, true_pattern)
+    pred_map = get_file_map(pred_dir, pred_pattern)
+    if not true_map:
+        raise FileNotFoundError(f"No files matched in {true_dir} with pattern {true_pattern!r}")
+    if not pred_map:
+        raise FileNotFoundError(f"No files matched in {pred_dir} with pattern {pred_pattern!r}")
+
+    common = sorted(set(true_map.keys()) & set(pred_map.keys()))
+    if not common:
+        raise ValueError(
+            f"No matching indices between {true_dir} and {pred_dir}. "
+            f"True indices (sample): {sorted(true_map.keys())[:5]}, "
+            f"Pred indices (sample): {sorted(pred_map.keys())[:5]}."
+        )
+
+    true_dir = Path(true_dir)
+    pred_dir = Path(pred_dir)
+    slices_true = []
+    slices_pred = []
+    for idx in common:
+        s_true = tifffile.imread(true_dir / true_map[idx])
+        s_pred = tifffile.imread(pred_dir / pred_map[idx])
+        if s_true.shape != s_pred.shape:
+            raise ValueError(
+                f"Shape mismatch at index {idx}: {s_true.shape} vs {s_pred.shape}"
+            )
+        slices_true.append((s_true > 0).astype(np.uint8))
+        slices_pred.append((s_pred > 0).astype(np.uint8))
+
+    volume_true = np.stack(slices_true, axis=0)
+    volume_pred = np.stack(slices_pred, axis=0)
+
+    if verbose:
+        print(f"Stacked {len(common)} slices into volume shape {volume_true.shape}")
+
+    return evaluate_volume_pair(
+        volume_true,
+        volume_pred,
+        compute_boundary=compute_boundary,
+        compute_voxel=compute_voxel,
+        boundary_thickness=boundary_thickness,
+        boundary_tolerance=boundary_tolerance,
+    )

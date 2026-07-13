@@ -202,6 +202,41 @@ def _extract_num(fname: str) -> Optional[int]:
     return int(m.group(1)) if m else None
 
 
+def _extract_interp_slice_num(fname: str) -> Optional[int]:
+    """
+    Extract slice index from interpolated filename.
+
+    For names like `xxxx_int1.tif`, the trailing `int1` describes interpolation
+    step, not slice index. This function first removes trailing `_int<k>` and then
+    extracts the numeric slice index from the remaining stem.
+    """
+    stem = Path(fname).stem
+    # Remove trailing interpolation suffix such as "_int1" or "_int_1"
+    stem_wo_int = re.sub(r'[_-]?int[_-]?\d+$', '', stem, flags=re.IGNORECASE)
+    idx = _extract_num(stem_wo_int)
+    if idx is not None:
+        return idx
+    # Fallback for uncommon names that only contain one numeric token.
+    return _extract_num(stem)
+
+
+def _parse_z_bin_int(filename: str) -> Tuple[Optional[float], Optional[int], Optional[int]]:
+    """
+    Parse z value, bin index, and interpolation index from filename.
+
+    Expected style:
+      occupancy_z1043.48_bin34_gray_int1.tif
+      occupancy_z1043.48_bin34_gray.tif  (int defaults to 0)
+    """
+    match = re.search(r"z([\d.]+)_bin(\d+).*?(?:_int(\d+))?", filename)
+    if match:
+        z_val = float(match.group(1))
+        bin_val = int(match.group(2))
+        int_val = int(match.group(3)) if match.group(3) else 0
+        return z_val, bin_val, int_val
+    return None, None, None
+
+
 def _to_binary(img: np.ndarray, threshold: int = 127) -> np.ndarray:
     """
     Convert image to binary (0 or 255).
@@ -253,7 +288,8 @@ def _read_img(path: Union[str, Path]) -> np.ndarray:
 
 def collect_interpolated_maps(
     interp_root: Union[str, Path],
-    exts: Tuple[str, ...] = ('.tif', '.tiff', '.png', '.jpg', '.jpeg')
+    exts: Tuple[str, ...] = ('.tif', '.tiff', '.png', '.jpg', '.jpeg'),
+    verbose: bool = False,
 ) -> Dict[int, Path]:
     """
     Collect all interpolated images from int_* subdirectories.
@@ -264,6 +300,8 @@ def collect_interpolated_maps(
         Root directory containing interpolation subdirectories (int_1, int_2, etc.)
     exts : tuple of str, default=('.tif', '.tiff', '.png', '.jpg', '.jpeg')
         File extensions to match
+    verbose : bool, default=False
+        If True, print per-directory collection statistics
     
     Returns
     -------
@@ -276,21 +314,56 @@ def collect_interpolated_maps(
     if not interp_root.is_dir():
         return idx2path
     
-    # Find all int_* subdirectories
+    # Find interpolation subdirectories named int_*
     subdirs = [
         d for d in interp_root.iterdir()
-        if d.is_dir() and d.name.startswith('int_')
+        if d.is_dir() and d.name.startswith("int_")
     ]
     subdirs = natsorted(subdirs, key=lambda x: x.name)
+
+    if verbose:
+        print(f"Found {len(subdirs)} interpolation subdirectories under: {interp_root}")
     
     for sd in subdirs:
-        for f in natsorted(sd.iterdir()):
-            if not f.suffix.lower().lstrip('.') in [ext.lstrip('.') for ext in exts]:
+        total_files = 0
+        matched_ext = 0
+        parsed_with_bin = 0
+        parsed_with_fallback = 0
+        kept = 0
+
+        # Recursively find all image files inside each int_* directory
+        files = natsorted(
+            [f for f in sd.rglob("*") if f.is_file()],
+            key=lambda p: p.name
+        )
+        for f in files:
+            total_files += 1
+            if f.suffix.lower().lstrip('.') not in [ext.lstrip('.') for ext in exts]:
                 continue
-            idx = _extract_num(f.name)
+            matched_ext += 1
+            # Prefer bin index for occupancy_z..._bin... naming
+            _, bin_idx, _ = _parse_z_bin_int(f.name)
+            if bin_idx is not None:
+                idx = bin_idx
+                parsed_with_bin += 1
+            else:
+                idx = _extract_interp_slice_num(f.name)
+                if idx is not None:
+                    parsed_with_fallback += 1
             if idx is not None:
                 # Use setdefault to keep first occurrence
-                idx2path.setdefault(idx, f)
+                prev = idx2path.setdefault(idx, f)
+                if prev == f:
+                    kept += 1
+
+        if verbose:
+            print(
+                f"  {sd.name}: files={total_files}, ext_matched={matched_ext}, "
+                f"parsed(bin/fallback)={parsed_with_bin}/{parsed_with_fallback}, kept={kept}"
+            )
+
+    if verbose:
+        print(f"Collected {len(idx2path)} unique interpolated slice indices")
     
     return idx2path
 
@@ -370,7 +443,7 @@ def merge_to_volume(
         raise RuntimeError(f"No base slices found in {base_dir}")
     
     # 2) Collect interpolated slices
-    interp_idx2path = collect_interpolated_maps(interp_dir, exts=exts)
+    interp_idx2path = collect_interpolated_maps(interp_dir, exts=exts, verbose=verbose)
     
     # 3) Build complete index range
     all_indices = sorted(set(base_idx2path.keys()) | set(interp_idx2path.keys()))

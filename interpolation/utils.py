@@ -368,6 +368,73 @@ def collect_interpolated_maps(
     return idx2path
 
 
+def collect_interpolated_paths(
+    interp_root: Union[str, Path],
+    exts: Tuple[str, ...] = ('.tif', '.tiff', '.png', '.jpg', '.jpeg'),
+    verbose: bool = False,
+) -> list:
+    """
+    Collect all interpolated image paths from int_* subdirectories (no dedup).
+
+    Paths are sorted by (z, bin, int) when the filename matches z/bin format;
+    otherwise they are sorted by fallback numeric index.
+    """
+    interp_root = Path(interp_root)
+    if not interp_root.is_dir():
+        return []
+
+    subdirs = [d for d in interp_root.iterdir() if d.is_dir() and d.name.startswith("int_")]
+    subdirs = natsorted(subdirs, key=lambda x: x.name)
+    ext_set = {ext.lower().lstrip('.') for ext in exts}
+
+    if verbose:
+        print(f"Found {len(subdirs)} interpolation subdirectories under: {interp_root}")
+
+    collected = []
+    for sd in subdirs:
+        total_files = 0
+        matched_ext = 0
+        parsed_with_zbin = 0
+        parsed_with_fallback = 0
+        kept = 0
+
+        files = natsorted([f for f in sd.rglob("*") if f.is_file()], key=lambda p: p.name)
+        for f in files:
+            total_files += 1
+            if f.suffix.lower().lstrip('.') not in ext_set:
+                continue
+            matched_ext += 1
+
+            z, bin_idx, int_idx = _parse_z_bin_int(f.name)
+            if z is not None and bin_idx is not None:
+                sort_key = (0, z, bin_idx, int_idx, f.name)
+                parsed_with_zbin += 1
+                kept += 1
+                collected.append((sort_key, f))
+                continue
+
+            idx = _extract_interp_slice_num(f.name)
+            if idx is not None:
+                sort_key = (1, idx, 0, 0, f.name)
+                parsed_with_fallback += 1
+                kept += 1
+                collected.append((sort_key, f))
+
+        if verbose:
+            print(
+                f"  {sd.name}: files={total_files}, ext_matched={matched_ext}, "
+                f"parsed(zbin/fallback)={parsed_with_zbin}/{parsed_with_fallback}, kept={kept}"
+            )
+
+    collected = sorted(collected, key=lambda x: x[0])
+    ordered_paths = [p for _, p in collected]
+
+    if verbose:
+        print(f"Collected {len(ordered_paths)} interpolated slices (no dedup)")
+
+    return ordered_paths
+
+
 def merge_to_volume(
     base_dir: Union[str, Path],
     interp_dir: Union[str, Path],
@@ -428,73 +495,83 @@ def merge_to_volume(
     out_binary_dir.mkdir(parents=True, exist_ok=True)
     
     # 1) Collect base slices
-    base_files = [
-        f for f in base_dir.iterdir()
-        if f.suffix.lower().lstrip('.') in [ext.lstrip('.') for ext in exts]
-    ]
-    base_files = natsorted(base_files, key=lambda x: _extract_num(x.name))
-    base_idx2path = {}
-    for f in base_files:
-        idx = _extract_num(f.name)
-        if idx is not None:
-            base_idx2path[idx] = f
-    
-    if not base_idx2path:
+    ext_set = {ext.lower().lstrip('.') for ext in exts}
+    base_records = []
+    for f in base_dir.iterdir():
+        if not f.is_file() or f.suffix.lower().lstrip('.') not in ext_set:
+            continue
+
+        z, bin_idx, _ = _parse_z_bin_int(f.name)
+        if z is not None and bin_idx is not None:
+            sort_key = (0, z, bin_idx, 0, f.name)
+        else:
+            idx = _extract_num(f.name)
+            if idx is None:
+                continue
+            sort_key = (1, idx, 0, 0, f.name)
+        base_records.append((sort_key, "base", f))
+
+    base_records = sorted(base_records, key=lambda x: x[0])
+    if not base_records:
         raise RuntimeError(f"No base slices found in {base_dir}")
-    
-    # 2) Collect interpolated slices
-    interp_idx2path = collect_interpolated_maps(interp_dir, exts=exts, verbose=verbose)
-    
-    # 3) Build complete index range
-    all_indices = sorted(set(base_idx2path.keys()) | set(interp_idx2path.keys()))
-    if not all_indices:
+
+    # 2) Collect interpolated slices (keep all)
+    interp_paths = collect_interpolated_paths(interp_dir, exts=exts, verbose=verbose)
+    interp_records = []
+    for f in interp_paths:
+        z, bin_idx, int_idx = _parse_z_bin_int(f.name)
+        if z is not None and bin_idx is not None:
+            sort_key = (0, z, bin_idx, int_idx, f.name)
+        else:
+            idx = _extract_interp_slice_num(f.name)
+            if idx is None:
+                continue
+            sort_key = (1, idx, 0, 0, f.name)
+        interp_records.append((sort_key, "interp", f))
+
+    all_records = sorted(base_records + interp_records, key=lambda x: x[0])
+    if not all_records:
         raise RuntimeError("No slices (base or interpolated) found.")
-    
+
     if verbose:
-        print(f"Found {len(base_idx2path)} base slices and {len(interp_idx2path)} interpolated slices")
-        print(f"Total unique indices: {len(all_indices)} (min: {min(all_indices)}, max: {max(all_indices)})")
-    
-    # 4) Process each slice
+        print(
+            f"Found {len(base_records)} base slices and "
+            f"{len(interp_records)} interpolated slices"
+        )
+        print(f"Total merged slices: {len(all_records)}")
+
+    # 3) Process each slice in sorted order
     volume_slices = []
     H_ref, W_ref = None, None
-    
-    for idx in all_indices:
-        if idx in base_idx2path:
-            src = base_idx2path[idx]
-            src_type = "base"
-        elif idx in interp_idx2path:
-            src = interp_idx2path[idx]
-            src_type = "interp"
-        else:
-            continue
-        
+
+    for merged_idx, (_, src_type, src) in enumerate(all_records, start=1):
         # Read and convert to binary
         img = _read_img(src)
         binmap = _to_binary(img, threshold=threshold)
-        
+
         # Check dimensions
         if H_ref is None:
             H_ref, W_ref = binmap.shape
         else:
             if binmap.shape != (H_ref, W_ref):
                 raise ValueError(
-                    f"Slice size mismatch at index {idx}: "
+                    f"Slice size mismatch at merged index {merged_idx}: "
                     f"got {binmap.shape}, expected {(H_ref, W_ref)}"
                 )
-        
-        # Save individual binary slice
-        out_name = f"slice_{idx:03d}.tif"
+
+        # Save individual binary slice by merged order (keeps all int slices)
+        out_name = f"slice_{merged_idx:03d}.tif"
         out_path = out_binary_dir / out_name
         imageio.imwrite(out_path, binmap.astype(np.uint8))
-        
+
         volume_slices.append(binmap)
-        
+
         if verbose and len(volume_slices) % 10 == 0:
-            print(f"Processed {len(volume_slices)}/{len(all_indices)} slices...")
-    
-    # 5) Stack into volume
+            print(f"Processed {len(volume_slices)}/{len(all_records)} slices...")
+
+    # 4) Stack into volume
     volume = np.stack(volume_slices, axis=0).astype(np.uint8)  # (Z, H, W)
-    
+
     # Save volume stack
     tiff.imwrite(
         out_stack_path,
@@ -507,8 +584,8 @@ def merge_to_volume(
         print(f"\n Saved binary slices to: {out_binary_dir.absolute()}")
         print(f" Saved volume to: {out_stack_path.absolute()}")
         print(f"   Volume shape: {volume.shape}, dtype: {volume.dtype}")
-        print(f"   Base indices (sample): {sorted(list(base_idx2path.keys()))[:10]}")
-        print(f"   Interp indices (sample): {sorted(list(interp_idx2path.keys()))[:10]}")
-        print(f"   All indices range: {min(all_indices)} - {max(all_indices)}")
+        print(f"   Base slices: {len(base_records)}")
+        print(f"   Interpolated slices: {len(interp_records)}")
+        print(f"   Merged slices: {len(all_records)}")
     
     return volume

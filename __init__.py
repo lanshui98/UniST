@@ -5,17 +5,31 @@ This package provides three main functionalities:
 - Upsampling: Point cloud upsampling using RepKPU
 - Interpolation: Slice interpolation using InterpolAI
 - Imputation: Gene expression imputation using SUICA_pro
+
+Quick middle-slice API::
+
+    from unist import predict_middle_slice
+    middle = predict_middle_slice(slice_a, slice_b, mode="fast", label_key="cell_type")
+    middle = predict_middle_slice(slice_a, slice_b, mode="inr")
 """
+
+from typing import Any
 
 __version__ = "0.1.0"
 __author__ = "Lan Shui"
 __email__ = "lshui@mdanderson.org"
 
-# Import submodules from unist package:
-#   import unist
-#   from unist.metrics import dice_coefficient, boundary_iou
-#   from unist.downstream.morph import dilation, erosion
-#   from unist.downstream.vis import slice_points_plane, slice_stack
-#   from unist.interpolation.ReHo import interpolate_missing_slices_spline
+__all__ = [
+    "__version__",
+    "__author__",
+    "__email__",
+    "predict_middle_slice",
+]
 
-__all__ = ["__version__", "__author__", "__email__"]
+
+def __getattr__(name: str) -> Any:
+    if name == "predict_middle_slice":
+        from unist.middle_slice import predict_middle_slice
+
+        return predict_middle_slice
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

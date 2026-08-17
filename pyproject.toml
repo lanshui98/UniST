@@ -12,7 +12,13 @@ license = {text = "MIT"}
 authors = [
     {name = "Lan Shui", email = "lshui@mdanderson.org"}
 ]
-keywords = ["3D Spatial Transcriptomics", "Generative AI", "Point Cloud Upsampling", "Implicit Neural Representations", "Slice Interpolation"]
+keywords = [
+    "3D Spatial Transcriptomics",
+    "Generative AI",
+    "Point Cloud Upsampling",
+    "Implicit Neural Representations",
+    "Slice Interpolation",
+]
 classifiers = [
     "Development Status :: 3 - Alpha",
     "Intended Audience :: Developers",
@@ -28,33 +34,42 @@ dependencies = [
     "torch>=1.8.0",
     "einops==0.7.0",
     "numpy>=1.19.0",
-    "scikit-learn>=1.6.0",
+    "scikit-learn>=1.0.0",
     "scipy>=1.5.0",
     "pandas>=1.0.0",
     "anndata>=0.8.0",
-    "open3d>=0.13.0",
     "tqdm",
     "h5py",
-    "ninja",
-    "tensorflow>=2.16.0",
     "imageio",
     "natsort",
     "pillow",
     "tifffile",
-    "pyvista>=0.40.0",
-    "lightning>=2.0.0",
     "omegaconf>=2.0.0",
     "rich",
     "scanpy",
 ]
 
+[project.urls]
+Homepage = "https://github.com/lanshui98/UniST"
+Documentation = "https://unist-tutorial.readthedocs.io/en/latest/"
+Repository = "https://github.com/lanshui98/UniST"
+Issues = "https://github.com/lanshui98/UniST/issues"
+
 [project.optional-dependencies]
+full = [
+    "open3d>=0.13.0",
+    "pyvista>=0.40.0",
+    "tensorflow>=2.16.0",
+    "lightning>=2.0.0",
+    "ninja",
+]
 dev = [
     "pytest>=7.0",
     "pytest-cov>=4.0",
+    "build>=1.0",
+    "twine>=5.0",
     "black>=23.0",
     "flake8>=6.0",
-    "mypy>=1.0",
 ]
 
 [tool.setuptools]
@@ -68,10 +83,11 @@ packages = [
     "unist.interpolation.ReHo",
     "unist.metrics",
     "unist.upsampling",
+    "unist.middle_slice",
 ]
 
 [tool.setuptools.package-data]
-unist = ["*.json", "*.yaml", "*.txt"]
+unist = ["*.json", "*.yaml", "*.txt", "LICENSE"]
 
 [tool.black]
 line-length = 100
@@ -82,3 +98,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+markers = [
+    "slow: marks tests as slow (deselect with '-m \"not slow\"')",
+]
+norecursedirs = [".git", "external", "dist", "build", "*.egg-info"]

@@ -104,13 +104,14 @@ def run_suica_inr_middle(
     from .paths import require_suica
 
     suica = require_suica()
-    work_dir = Path(work_dir)
+    # Absolute paths: SUICA training chdirs into external/SUICA_pro
+    work_dir = Path(work_dir).expanduser().resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
-    data_file = work_dir / "flanking_3d.h5ad"
+    data_file = (work_dir / "flanking_3d.h5ad").resolve()
     stacked.write_h5ad(data_file)
 
-    emb_logs = work_dir / "GAE-3D-sparse" / "one_line"
-    inr_logs = work_dir / "GAE+FFN-3D-sparse" / "one_line"
+    emb_logs = (work_dir / "GAE-3D-sparse" / "one_line").resolve()
+    inr_logs = (work_dir / "GAE+FFN-3D-sparse" / "one_line").resolve()
 
     embedder_cfg = OmegaConf.create(
         {
@@ -235,7 +236,7 @@ def run_suica_inr_middle(
             preserve_z_scale=True,
             z_scale_factor=z_scale_factor,
         )
-        coords_file = work_dir / "custom_coords_3d_norm.npy"
+        coords_file = (work_dir / "custom_coords_3d_norm.npy").resolve()
         np.save(coords_file, query_norm.astype(np.float32))
 
         pred_cfg = OmegaConf.create(
@@ -292,15 +293,24 @@ def run_suica_inr_middle(
     raw_out = ad.read_h5ad(out_candidates[-1])
 
     if "reconstructed_raw" in raw_out.obsm:
+        from scipy import sparse as sp
+
         X = raw_out.obsm["reconstructed_raw"]
+        if sp.issparse(X):
+            X = X.toarray()
         result = AnnData(
-            X=X,
+            X=np.asarray(X, dtype=np.float32),
             obs=raw_out.obs.copy(),
-            var=stacked.var.copy() if X.shape[1] == stacked.n_vars else raw_out.var.copy(),
+            var=stacked.var.copy()
+            if np.asarray(X).shape[1] == stacked.n_vars
+            else raw_out.var.copy(),
         )
         if "fitted_embd" in raw_out.obsm:
-            result.obsm["fitted_embd"] = raw_out.obsm["fitted_embd"]
-        result.obsm["reconstructed_raw"] = raw_out.obsm["reconstructed_raw"]
+            emb = raw_out.obsm["fitted_embd"]
+            if sp.issparse(emb):
+                emb = emb.toarray()
+            result.obsm["fitted_embd"] = np.asarray(emb, dtype=np.float32)
+        result.obsm["reconstructed_raw"] = np.asarray(X, dtype=np.float32)
     else:
         result = raw_out.copy()
 

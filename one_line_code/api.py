@@ -207,9 +207,9 @@ def predict_middle_slice(
     if mode == "inr":
         if work_dir is None:
             tmp = tempfile.mkdtemp(prefix="unist_one_line_")
-            work_path = Path(tmp)
+            work_path = Path(tmp).resolve()
         else:
-            work_path = Path(work_dir)
+            work_path = Path(work_dir).expanduser().resolve()
 
         out = run_suica_inr_middle(
             ref,

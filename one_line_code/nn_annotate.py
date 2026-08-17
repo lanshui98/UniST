@@ -12,9 +12,28 @@ from sklearn.neighbors import NearestNeighbors
 
 
 def _as_dense(X) -> np.ndarray:
+    """Convert AnnData X / obsm arrays (dense, sparse, or object-wrapped sparse) to float64."""
+    if X is None:
+        raise ValueError("Cannot densify None")
     if sparse.issparse(X):
         return np.asarray(X.toarray(), dtype=np.float64)
-    return np.asarray(X, dtype=np.float64)
+    if hasattr(X, "toarray") and callable(X.toarray):
+        try:
+            return np.asarray(X.toarray(), dtype=np.float64)
+        except Exception:
+            pass
+    arr = np.asarray(X)
+    if arr.dtype == object:
+        # Common AnnData pitfall: np.asarray(csr_matrix) → 0-d / object array
+        if arr.shape == () or arr.size == 1:
+            item = arr.item() if arr.shape == () else arr.ravel()[0]
+            if sparse.issparse(item) or hasattr(item, "toarray"):
+                return _as_dense(item)
+        raise TypeError(
+            f"Cannot densify object array of shape {arr.shape}; "
+            f"element type={type(arr.ravel()[0]) if arr.size else None}"
+        )
+    return np.asarray(arr, dtype=np.float64)
 
 
 def transfer_1nn(
@@ -180,10 +199,10 @@ def annotate_with_hybrid(
         )
 
     labels, nn_idx, alpha_used = transfer_hybrid_nn(
-        ref_coords_norm=np.asarray(ref_emb_adata.obsm["spatial"]),
-        query_coords_norm=np.asarray(middle.obsm["spatial_normalized"]),
-        ref_embd=np.asarray(ref_emb_adata.obsm["embeddings"]),
-        query_embd=np.asarray(middle.obsm["fitted_embd"]),
+        ref_coords_norm=_as_dense(ref_emb_adata.obsm["spatial"]),
+        query_coords_norm=_as_dense(middle.obsm["spatial_normalized"]),
+        ref_embd=_as_dense(ref_emb_adata.obsm["embeddings"]),
+        query_embd=_as_dense(middle.obsm["fitted_embd"]),
         ref_labels=np.asarray(ref_adata.obs[label_key]),
         alpha=alpha,
     )

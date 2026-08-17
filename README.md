@@ -9,7 +9,7 @@
 [![Downloads (30 days)](https://static.pepy.tech/badge/unist/month)](https://pepy.tech/project/unist)
 [![Python](https://img.shields.io/pypi/pyversions/unist.svg)](https://pypi.org/project/unist/)
 
-### [🌐 Tutorial Website](https://unist-tutorial.readthedocs.io/en/latest/) · [📦 PyPI](https://pypi.org/project/unist/) · [📊 Download stats](https://pepy.tech/project/unist)
+### [🌐 Tutorial Website](https://unist-tutorial.readthedocs.io/en/latest/) · [📦 PyPI](https://pypi.org/project/unist/) · [📊 Download stats](https://pypistats.org/packages/unist)
 
 A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 
@@ -25,11 +25,14 @@ A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 pip install unist
 ```
 
-**Full extras** (InterpolAI / PyVista / Lightning pipelines):
+**Full extras** (InterpolAI / PyVista / Lightning / SUICA INR):
 
 ```bash
 pip install "unist[full]"
 ```
+
+Download InterpolAI weights into `external/InterpolAI/interpolation/model/`
+([Google Drive](https://drive.google.com/drive/folders/1zw6kgpnxat_CEFoDWaVIHndxuKqk5vmD?usp=sharing)).
 
 **From GitHub:**
 
@@ -51,20 +54,28 @@ python setup_cuda_extensions.py
 
 ## Quick Start — middle slice (one line)
 
-Given two flanking ST slices (`AnnData` with `obsm["spatial"]`):
+Pipeline: **ST spots → occupancy image → InterpolAI → back to original xy** (`z_mid`), then annotate / impute.
 
 ```python
 from unist import predict_middle_slice
 
-# Fast: cell-type annotation via 1-nearest neighbor
+# Fast: InterpolAI structure + spatial 1-NN cell type
 middle = predict_middle_slice(slice_a, slice_b, mode="fast", label_key="cell_type")
 
-# INR: gene expression on the middle plane
-middle = predict_middle_slice(slice_a, slice_b, mode="inr")
+# INR: InterpolAI structure + SUICA gene expression
+#       + hybrid cell type (alpha * d_emb + (1-alpha) * d_spatial)
+middle = predict_middle_slice(
+    slice_a, slice_b,
+    mode="inr",
+    label_key="cell_type",
+    work_dir="./unist_run",
+    annotation_alpha=0.05,  # or "auto"
+)
 ```
 
-- **fast** — places query spots on the mid-z plane and transfers `label_key` from the nearest flanking cell (optional `transfer_expression=True`).
-- **inr** — trains a lightweight Fourier-feature INR on both slices and predicts expression at mid-z (optional `label_key` adds 1-NN cell types).
+- **Geometry**: shared bbox occupancy grid → InterpolAI (`t=0.5`) → pixels mapped back to original coordinates.
+- **fast**: spatial 1-NN labels.
+- **inr**: SUICA_pro GAE+INR expression; cell type uses INR `fitted_embd` vs GAE embeddings with weight `annotation_alpha`.
 
 ## Upsampling
 [Tutorial Page](https://unist-tutorial.readthedocs.io/en/latest/upsampling.html)

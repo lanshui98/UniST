@@ -2,12 +2,14 @@ include LICENSE
 include README.md
 include requirements.txt
 include pyproject.toml
-recursive-include middle_slice *.py
+recursive-include one_line_code *.py
 recursive-include downstream *.py
 recursive-include interpolation *.py
 recursive-include metrics *.py
 recursive-include upsampling *.py
-recursive-exclude external *
+recursive-include external/SUICA_pro *.py *.yaml
+recursive-include external/InterpolAI *.py
+recursive-exclude external/RepKPU_ops *
 recursive-exclude * __pycache__
 recursive-exclude * *.py[cod]
 exclude whole.gif

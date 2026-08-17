@@ -10,12 +10,12 @@ Quick middle-slice API::
 
     from unist import predict_middle_slice
     middle = predict_middle_slice(slice_a, slice_b, mode="fast", label_key="cell_type")
-    middle = predict_middle_slice(slice_a, slice_b, mode="inr")
+    middle = predict_middle_slice(slice_a, slice_b, mode="inr", work_dir="./unist_run")
 """
 
 from typing import Any
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
 __author__ = "Lan Shui"
 __email__ = "lshui@mdanderson.org"
 
@@ -29,7 +29,7 @@ __all__ = [
 
 def __getattr__(name: str) -> Any:
     if name == "predict_middle_slice":
-        from unist.middle_slice import predict_middle_slice
+        from unist.one_line_code import predict_middle_slice
 
         return predict_middle_slice
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

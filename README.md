@@ -3,7 +3,13 @@
   <img src="whole.gif" width="160" align="right">
 </h1>
 
-### [🌐 Tutorial Website](https://unist-tutorial.readthedocs.io/en/latest/)
+[![PyPI version](https://img.shields.io/pypi/v/unist.svg)](https://pypi.org/project/unist/)
+[![Downloads](https://img.shields.io/pypi/dm/unist.svg)](https://pypistats.org/packages/unist)
+[![Total downloads](https://static.pepy.tech/badge/unist)](https://pepy.tech/project/unist)
+[![Downloads (30 days)](https://static.pepy.tech/badge/unist/month)](https://pepy.tech/project/unist)
+[![Python](https://img.shields.io/pypi/pyversions/unist.svg)](https://pypi.org/project/unist/)
+
+### [🌐 Tutorial Website](https://unist-tutorial.readthedocs.io/en/latest/) · [📦 PyPI](https://pypi.org/project/unist/) · [📊 Download stats](https://pepy.tech/project/unist)
 
 A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 
@@ -13,27 +19,54 @@ A Unified Computational Framework for 3D Spatial Transcriptomics Reconstruction.
 
 ## Installation
 
+**From PyPI (recommended):**
+
+```bash
+pip install unist
+```
+
+**Full extras** (InterpolAI / PyVista / Lightning pipelines):
+
+```bash
+pip install "unist[full]"
+```
+
 **From GitHub:**
 
-```
+```bash
 pip install git+https://github.com/lanshui98/UniST.git
 ```
 
 **Using requirements.txt:**
 
-```
+```bash
 pip install -r requirements.txt
 ```
 
 #### Build CUDA extensions (only for upsampling)
 
-```
+```bash
 python setup_cuda_extensions.py
 ```
 
-## Quick Start
+## Quick Start — middle slice (one line)
 
-### Upsampling
+Given two flanking ST slices (`AnnData` with `obsm["spatial"]`):
+
+```python
+from unist import predict_middle_slice
+
+# Fast: cell-type annotation via 1-nearest neighbor
+middle = predict_middle_slice(slice_a, slice_b, mode="fast", label_key="cell_type")
+
+# INR: gene expression on the middle plane
+middle = predict_middle_slice(slice_a, slice_b, mode="inr")
+```
+
+- **fast** — places query spots on the mid-z plane and transfers `label_key` from the nearest flanking cell (optional `transfer_expression=True`).
+- **inr** — trains a lightweight Fourier-feature INR on both slices and predicts expression at mid-z (optional `label_key` adds 1-NN cell types).
+
+## Upsampling
 [Tutorial Page](https://unist-tutorial.readthedocs.io/en/latest/upsampling.html)
 
 ```

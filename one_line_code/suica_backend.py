@@ -314,8 +314,11 @@ def run_suica_inr_middle(
     else:
         result = raw_out.copy()
 
-    result.obsm["spatial"] = query_coords.copy()
-    result.obsm["spatial_normalized"] = query_norm
+    result.obsm["spatial"] = query_coords.copy()  # original / InterpolAI world coords
+    result.obsm["spatial_normalized"] = query_norm  # GAE/INR training space (for hybrid NN)
+    # Persist both for post-hoc re-annotation without re-running InterpolAI
+    np.save(work_dir / "middle_spatial_raw.npy", query_coords.astype(np.float64))
+    np.save(work_dir / "middle_spatial_normalized.npy", query_norm.astype(np.float64))
     result.uns["unist"] = {
         "mode": "inr",
         "backend": "SUICA_pro",
@@ -323,5 +326,11 @@ def run_suica_inr_middle(
         "embedder_epochs": embedder_epochs,
         "inr_epochs": inr_epochs,
         "embedded_h5ad": str(embedded_h5ad),
+        "coord_spaces": {
+            "obsm.spatial": "original world xy + z_mid (InterpolAI)",
+            "obsm.spatial_normalized": "same as GAE embedded-all.obsm['spatial'] / INR input",
+            "hybrid_annotation_spatial": "spatial_normalized vs embedded-all.obsm['spatial']",
+            "hybrid_annotation_embedding": "fitted_embd vs embedded-all.obsm['embeddings']",
+        },
     }
     return result

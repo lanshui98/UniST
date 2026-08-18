@@ -174,14 +174,16 @@ def annotate_with_hybrid(
     alpha: Union[float, str] = 0.05,
 ) -> AnnData:
     """
-    Write hybrid cell-type predictions onto ``middle`` using INR embeddings.
+Write hybrid cell-type predictions onto ``middle`` using INR embeddings.
 
-    Expects:
-    - ``middle.obsm["fitted_embd"]`` and ``middle.obsm["spatial_normalized"]``
-    - ``ref_emb_adata.obsm["embeddings"]`` and ``ref_emb_adata.obsm["spatial"]``
-      (normalized spatial from GAE embedder)
-    - ``ref_adata.obs[label_key]`` aligned with flanking / embedded cells
-    """
+Coordinate / feature spaces (must not mix):
+- **Spatial term**: ``middle.obsm["spatial_normalized"]`` vs
+  ``ref_emb_adata.obsm["spatial"]`` — both in GAE/INR normalized space
+  (NOT original ST / InterpolAI world coordinates).
+- **Embedding term**: ``middle.obsm["fitted_embd"]`` vs
+  ``ref_emb_adata.obsm["embeddings"]``.
+- **Plotting**: use ``middle.obsm["spatial"]`` (original world coords) if present.
+"""
     if "fitted_embd" not in middle.obsm:
         raise KeyError("middle is missing obsm['fitted_embd'] (INR embedding)")
     if "spatial_normalized" not in middle.obsm:

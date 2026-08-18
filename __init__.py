@@ -15,7 +15,7 @@ Quick middle-slice API::
 
 from typing import Any
 
-__version__ = "0.1.1"
+__version__ = "0.1.2"
 __author__ = "Lan Shui"
 __email__ = "lshui@mdanderson.org"
 

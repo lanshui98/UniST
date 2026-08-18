@@ -1,8 +1,8 @@
-"""Cell-type transfer: spatial 1-NN (fast) or hybrid spatial + INR embedding (INR mode)."""
+"""Cell-type transfer: spatial 1-NN (fast) or hybrid world-spatial + INR embedding (INR mode)."""
 
 from __future__ import annotations
 
-from typing import Optional, Union, Tuple
+from typing import Optional, Union
 
 import numpy as np
 import pandas as pd
@@ -24,7 +24,6 @@ def _as_dense(X) -> np.ndarray:
             pass
     arr = np.asarray(X)
     if arr.dtype == object:
-        # Common AnnData pitfall: np.asarray(csr_matrix) → 0-d / object array
         if arr.shape == () or arr.size == 1:
             item = arr.item() if arr.shape == () else arr.ravel()[0]
             if sparse.issparse(item) or hasattr(item, "toarray"):
@@ -43,7 +42,7 @@ def transfer_1nn(
     label_key: Optional[str] = None,
     transfer_expression: bool = False,
 ) -> AnnData:
-    """Pure spatial 1-NN label / expression transfer."""
+    """Pure spatial 1-NN in **original / InterpolAI world** coordinates."""
     if ref_coords.shape[0] != ref_adata.n_obs:
         raise ValueError("ref_coords length must match ref_adata.n_obs")
 
@@ -62,7 +61,7 @@ def transfer_1nn(
         var=ref_adata.var.copy(),
         obs=pd.DataFrame(index=[f"middle_{i}" for i in range(query_coords.shape[0])]),
     )
-    out.obsm["spatial"] = query_coords.copy()
+    out.obsm["spatial"] = np.asarray(query_coords, dtype=np.float64).copy()
     out.obsm["nn_distance"] = distances.ravel()
     out.obs["nn_index"] = idx
 
@@ -85,8 +84,8 @@ def _balanced_alpha(d_expr: np.ndarray, d_spatial: np.ndarray) -> float:
 
 
 def transfer_hybrid_nn(
-    ref_coords_norm: np.ndarray,
-    query_coords_norm: np.ndarray,
+    ref_coords: np.ndarray,
+    query_coords: np.ndarray,
     ref_embd: np.ndarray,
     query_embd: np.ndarray,
     ref_labels: np.ndarray,
@@ -95,43 +94,29 @@ def transfer_hybrid_nn(
     chunk_size: int = 512,
 ) -> tuple[np.ndarray, np.ndarray, float]:
     """
-    Hybrid 1-NN cell-type transfer (UniST tutorial style).
+    Hybrid 1-NN cell-type transfer.
 
     For each query point::
 
-        d = alpha * d_expr + (1 - alpha) * d_spatial
+        d = alpha * d_emb + (1 - alpha) * d_spatial
         label = ref_labels[argmin(d)]
 
-    Parameters
-    ----------
-    ref_coords_norm, query_coords_norm
-        Normalized spatial coordinates (same space as SUICA embedder / INR).
-    ref_embd
-        GAE embeddings of flanking cells, shape (N, D).
-    query_embd
-        INR ``fitted_embd`` at middle spots, shape (M, D).
-    ref_labels
-        Cell-type labels for flanking cells, length N.
-    alpha
-        Weight on expression/embedding distance. ``0`` = pure spatial,
-        ``1`` = pure embedding. ``"auto"`` = median-balanced weight.
-    chunk_size
-        Query chunk size for memory-friendly distance computation.
+    ``ref_coords`` / ``query_coords`` must be in the **same** coordinate frame.
+    For one_line_code INR mode this is **original world / InterpolAI** space
+    (same as ``obsm['spatial']`` on flanking + middle), NOT GAE-normalized space.
 
-    Returns
-    -------
-    labels, nn_index, alpha_used
+    Embeddings are GAE ``embeddings`` vs INR ``fitted_embd``.
     """
-    ref_coords_norm = np.asarray(ref_coords_norm, dtype=np.float64)
-    query_coords_norm = np.asarray(query_coords_norm, dtype=np.float64)
+    ref_coords = np.asarray(ref_coords, dtype=np.float64)
+    query_coords = np.asarray(query_coords, dtype=np.float64)
     ref_embd = _as_dense(ref_embd)
     query_embd = _as_dense(query_embd)
     ref_labels = np.asarray(ref_labels)
 
-    if ref_embd.shape[0] != ref_coords_norm.shape[0]:
-        raise ValueError("ref_embd and ref_coords_norm length mismatch")
-    if query_embd.shape[0] != query_coords_norm.shape[0]:
-        raise ValueError("query_embd and query_coords_norm length mismatch")
+    if ref_embd.shape[0] != ref_coords.shape[0]:
+        raise ValueError("ref_embd and ref_coords length mismatch")
+    if query_embd.shape[0] != query_coords.shape[0]:
+        raise ValueError("query_embd and query_coords length mismatch")
     if ref_embd.shape[1] != query_embd.shape[1]:
         raise ValueError(
             f"Embedding dim mismatch: ref {ref_embd.shape[1]} vs query {query_embd.shape[1]}"
@@ -141,12 +126,11 @@ def transfer_hybrid_nn(
     best_idx = np.empty(n_q, dtype=np.int64)
     alpha_used: Optional[float] = None if alpha == "auto" else float(alpha)
 
-    # Optional auto-alpha from first chunk medians
     if alpha == "auto":
         q0 = query_embd[: min(256, n_q)]
-        c0 = query_coords_norm[: min(256, n_q)]
+        c0 = query_coords[: min(256, n_q)]
         d_e = np.linalg.norm(q0[:, None, :] - ref_embd[None, :, :], axis=-1)
-        d_s = np.linalg.norm(c0[:, None, :] - ref_coords_norm[None, :, :], axis=-1)
+        d_s = np.linalg.norm(c0[:, None, :] - ref_coords[None, :, :], axis=-1)
         alpha_used = _balanced_alpha(d_e, d_s)
 
     assert alpha_used is not None
@@ -154,10 +138,9 @@ def transfer_hybrid_nn(
     for start in range(0, n_q, chunk_size):
         end = min(start + chunk_size, n_q)
         qe = query_embd[start:end]
-        qc = query_coords_norm[start:end]
-        # (chunk, N)
+        qc = query_coords[start:end]
         d_expr = np.linalg.norm(qe[:, None, :] - ref_embd[None, :, :], axis=-1)
-        d_spatial = np.linalg.norm(qc[:, None, :] - ref_coords_norm[None, :, :], axis=-1)
+        d_spatial = np.linalg.norm(qc[:, None, :] - ref_coords[None, :, :], axis=-1)
         d = alpha_used * d_expr + (1.0 - alpha_used) * d_spatial
         best_idx[start:end] = d.argmin(axis=1)
 
@@ -174,35 +157,41 @@ def annotate_with_hybrid(
     alpha: Union[float, str] = 0.05,
 ) -> AnnData:
     """
-Write hybrid cell-type predictions onto ``middle`` using INR embeddings.
+    Hybrid cell-type annotation for INR middle slice.
 
-Coordinate / feature spaces (must not mix):
-- **Spatial term**: ``middle.obsm["spatial_normalized"]`` vs
-  ``ref_emb_adata.obsm["spatial"]`` — both in GAE/INR normalized space
-  (NOT original ST / InterpolAI world coordinates).
-- **Embedding term**: ``middle.obsm["fitted_embd"]`` vs
-  ``ref_emb_adata.obsm["embeddings"]``.
-- **Plotting**: use ``middle.obsm["spatial"]`` (original world coords) if present.
-"""
+    Spaces (do not mix):
+    - **Spatial term (world)**: ``middle.obsm["spatial"]`` vs ``ref_adata.obsm["spatial"]``
+      — InterpolAI / original ST coordinates (same frame as fast mode).
+    - **Embedding term**: ``middle.obsm["fitted_embd"]`` vs
+      ``ref_emb_adata.obsm["embeddings"]``.
+    - ``spatial_normalized`` is only for INR training/prediction, **not** used here.
+    """
     if "fitted_embd" not in middle.obsm:
         raise KeyError("middle is missing obsm['fitted_embd'] (INR embedding)")
-    if "spatial_normalized" not in middle.obsm:
-        raise KeyError("middle is missing obsm['spatial_normalized']")
+    if "spatial" not in middle.obsm:
+        raise KeyError("middle is missing obsm['spatial'] (world / InterpolAI coords)")
+    if "spatial" not in ref_adata.obsm:
+        raise KeyError("ref_adata is missing obsm['spatial'] (flanking world coords)")
     if "embeddings" not in ref_emb_adata.obsm:
         raise KeyError("ref embedder output missing obsm['embeddings']")
-
     if label_key not in ref_adata.obs:
         raise KeyError(f"label_key '{label_key}' not in flanking obs")
-
-    # Align labels: embedded file should match flanking n_obs
     if ref_emb_adata.n_obs != ref_adata.n_obs:
         raise ValueError(
             f"Embedded ref n_obs={ref_emb_adata.n_obs} != flanking n_obs={ref_adata.n_obs}"
         )
 
+    ref_xyz = _as_dense(ref_adata.obsm["spatial"])
+    query_xyz = _as_dense(middle.obsm["spatial"])
+    if ref_xyz.shape[1] != query_xyz.shape[1]:
+        # allow 2D vs 3D by padding/truncating to min dim for distance
+        d = min(ref_xyz.shape[1], query_xyz.shape[1])
+        ref_xyz = ref_xyz[:, :d]
+        query_xyz = query_xyz[:, :d]
+
     labels, nn_idx, alpha_used = transfer_hybrid_nn(
-        ref_coords_norm=_as_dense(ref_emb_adata.obsm["spatial"]),
-        query_coords_norm=_as_dense(middle.obsm["spatial_normalized"]),
+        ref_coords=ref_xyz,
+        query_coords=query_xyz,
         ref_embd=_as_dense(ref_emb_adata.obsm["embeddings"]),
         query_embd=_as_dense(middle.obsm["fitted_embd"]),
         ref_labels=np.asarray(ref_adata.obs[label_key]),
@@ -214,7 +203,8 @@ Coordinate / feature spaces (must not mix):
     middle.uns.setdefault("unist", {})
     middle.uns["unist"]["annotation"] = "hybrid_nn"
     middle.uns["unist"]["annotation_alpha"] = alpha_used
+    middle.uns["unist"]["annotation_spatial_space"] = "world (obsm['spatial'])"
     middle.uns["unist"]["annotation_formula"] = (
-        "d = alpha * ||emb_inr - emb_gae|| + (1-alpha) * ||xyz_norm_q - xyz_norm_ref||"
+        "d = alpha * ||fitted_embd - gae_emb|| + (1-alpha) * ||xyz_world_q - xyz_world_ref||"
     )
     return middle

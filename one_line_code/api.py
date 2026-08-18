@@ -12,7 +12,8 @@ Downstream
 ----------
 - ``mode="fast"``: spatial 1-NN cell-type transfer on those coords.
 - ``mode="inr"``: SUICA_pro GAE+INR gene expression at those coords, then hybrid
-  cell-type prediction mixing INR embedding distance and spatial distance.
+  cell-type prediction: embedding distance + **world-space** spatial distance
+  (same ``obsm['spatial']`` frame as InterpolAI / flanking slices).
 """
 
 from __future__ import annotations

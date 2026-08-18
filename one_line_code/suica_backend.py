@@ -107,6 +107,11 @@ def run_suica_inr_middle(
     # Absolute paths: SUICA training chdirs into external/SUICA_pro
     work_dir = Path(work_dir).expanduser().resolve()
     work_dir.mkdir(parents=True, exist_ok=True)
+
+    # Persist InterpolAI world coords immediately (source of truth for plotting + hybrid spatial)
+    query_coords = np.asarray(query_coords, dtype=np.float64)
+    np.save(work_dir / "middle_spatial_raw.npy", query_coords)
+
     data_file = (work_dir / "flanking_3d.h5ad").resolve()
     stacked.write_h5ad(data_file)
 
@@ -314,10 +319,8 @@ def run_suica_inr_middle(
     else:
         result = raw_out.copy()
 
-    result.obsm["spatial"] = query_coords.copy()  # original / InterpolAI world coords
-    result.obsm["spatial_normalized"] = query_norm  # GAE/INR training space (for hybrid NN)
-    # Persist both for post-hoc re-annotation without re-running InterpolAI
-    np.save(work_dir / "middle_spatial_raw.npy", query_coords.astype(np.float64))
+    result.obsm["spatial"] = query_coords.copy()  # InterpolAI / world — plot + hybrid spatial
+    result.obsm["spatial_normalized"] = query_norm  # GAE/INR input only
     np.save(work_dir / "middle_spatial_normalized.npy", query_norm.astype(np.float64))
     result.uns["unist"] = {
         "mode": "inr",
@@ -327,10 +330,10 @@ def run_suica_inr_middle(
         "inr_epochs": inr_epochs,
         "embedded_h5ad": str(embedded_h5ad),
         "coord_spaces": {
-            "obsm.spatial": "original world xy + z_mid (InterpolAI)",
-            "obsm.spatial_normalized": "same as GAE embedded-all.obsm['spatial'] / INR input",
-            "hybrid_annotation_spatial": "spatial_normalized vs embedded-all.obsm['spatial']",
-            "hybrid_annotation_embedding": "fitted_embd vs embedded-all.obsm['embeddings']",
+            "obsm.spatial": "InterpolAI world xy + z_mid (plotting + hybrid spatial term)",
+            "obsm.spatial_normalized": "GAE/INR normalized coords (model input only)",
+            "hybrid_spatial": "world obsm['spatial'] vs flanking obsm['spatial']",
+            "hybrid_embedding": "fitted_embd vs GAE embeddings",
         },
     }
     return result

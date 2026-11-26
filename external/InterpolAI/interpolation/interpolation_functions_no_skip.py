@@ -47,9 +47,11 @@ def interpolate_from_image_stack_no_skip(pthims, skips, TILE_SIZE, model, image_
     image_files = [f for f in os.listdir(pthims) if f.endswith(('tif', 'png', 'jpg'))]
     image_files = natsorted(image_files)
     file_extension = get_file_extension(image_files[0])
-    image2 = None
 
     for skip_num in skips:
+        # Reuse the previous right image as the next left image only when it is the same file
+        # (reset for each skip value, and not carried across windows skipped as already done).
+        prev_path, prev_image = None, None
         print(f'Interpolating int {skip_num}:')
         output_folder = os.path.join(pthims, f'int_{skip_num}_no_skip')
         os.makedirs(output_folder, exist_ok=True)
@@ -64,13 +66,14 @@ def interpolate_from_image_stack_no_skip(pthims, skips, TILE_SIZE, model, image_
                 print(f'already interpolated from input images {image_files[i]} and {image_files[i + 1]}')
                 continue
 
-            if image2 is not None:
+            if image1_path == prev_path:
                 print('loading image 1 from image 2')
-                image1 = image2
+                image1 = prev_image
             else:
                 image1 = load_image(image1_path)
 
             image2 = load_image(image2_path)
+            prev_path, prev_image = image2_path, image2
 
             if max(image1.shape[:2]) > TILE_SIZE[0] or max(image2.shape[:2]) > TILE_SIZE[1]:
                 print('stitching')

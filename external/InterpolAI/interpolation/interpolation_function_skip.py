@@ -44,11 +44,17 @@ def stitch_tiles(tiles: np.ndarray, pad_h: int, pad_w: int, tile_size: tuple):
     return stitched_image
 
 def interpolate_from_image_stack_skip(pthims, skip_values, TILE_SIZE, model, image_files=None):
+    """Skip-slice validation over a full, ordered image stack.
+
+    For each skip value k and every window i, images i and i+k+1 (natural sort order) are
+    the inputs and the k images in between are predicted at t = 1/(k+1), ..., k/(k+1).
+    The in-between images must be present in the folder (they fix the positions) but are
+    never read, so they can be compared with the predictions afterwards.
+    """
     _UINT8_MAX_F = float(np.iinfo(np.uint8).max)
     image_files = [f for f in os.listdir(pthims) if f.endswith(('tif', 'png', 'jpg'))]
     image_files = natsorted(image_files)
     file_extension = get_file_extension(image_files[0])
-    image2 = None
 
     for skip_num in skip_values:
         print(f'Interpolating int {skip_num} with skip {skip_num}:')
@@ -65,12 +71,10 @@ def interpolate_from_image_stack_skip(pthims, skip_values, TILE_SIZE, model, ima
                 print(f'already interpolated from input images {image_files[i]} and {image_files[i + skip_num + 1]}')
                 continue
 
-            if image2 is not None:
-                print('loading image 1 from image 2')
-                image1 = image2
-            else:
-                image1 = load_image(image1_path)
-
+            # Load both inputs of this window. With a sliding window of width k+1, the left
+            # input (image i) was never the previous window's right input (image i+k), so the
+            # previous image cannot be reused (doing so fed image i+k, a withheld slice, as input).
+            image1 = load_image(image1_path)
             image2 = load_image(image2_path)
 
             if max(image1.shape[:2]) > TILE_SIZE[0] or max(image2.shape[:2]) > TILE_SIZE[1]:
